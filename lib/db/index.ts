@@ -1,4 +1,6 @@
 import { sql } from '@vercel/postgres';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface Profile {
   id: number;
@@ -47,9 +49,9 @@ const isDatabaseConfigured = () => {
 };
 
 // In-memory storage for development (when database is not configured)
-let mockProfiles: Profile[] = [];
-let mockEvents: CalendarEvent[] = [];
-let mockTokenUsage: TokenUsage[] = [];
+const mockProfiles: Profile[] = [];
+const mockEvents: CalendarEvent[] = [];
+const mockTokenUsage: TokenUsage[] = [];
 let nextProfileId = 1;
 let nextEventId = 1;
 let nextTokenId = 1;
@@ -125,7 +127,7 @@ export async function updateProfile(id: number, data: Partial<Profile>): Promise
   
   try {
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     Object.entries(data).forEach(([key, value]) => {
@@ -215,10 +217,14 @@ export async function saveCalendarEvent(data: Partial<CalendarEvent>): Promise<C
   }
   
   try {
+    // Convert Date objects to ISO strings for database storage
+    const startTime = data.start_time instanceof Date ? data.start_time.toISOString() : data.start_time;
+    const endTime = data.end_time instanceof Date ? data.end_time.toISOString() : data.end_time;
+    
     const { rows } = await sql<CalendarEvent>`
       INSERT INTO calendar_events (profile_id, event_id, title, description, start_time, end_time, attendees, source)
       VALUES (${data.profile_id}, ${data.event_id}, ${data.title}, ${data.description || ''}, 
-              ${data.start_time}, ${data.end_time}, ${data.attendees || []}, ${data.source})
+              ${startTime}, ${endTime}, ${JSON.stringify(data.attendees || [])}, ${data.source})
       ON CONFLICT (event_id) DO UPDATE SET
         title = EXCLUDED.title,
         description = EXCLUDED.description,
@@ -328,9 +334,9 @@ export async function getTotalTokensByType(profileId: number): Promise<{
       GROUP BY operation_type
     `;
 
-    rows.forEach((row: any) => {
-      result[row.operation_type as keyof typeof result] = parseInt(row.total);
-      result.total += parseInt(row.total);
+    rows.forEach((row) => {
+      result[(row as { operation_type: string; total: string }).operation_type as keyof typeof result] = parseInt(row.total);
+      result.total += parseInt((row as { operation_type: string; total: string }).total);
     });
 
     return result;
@@ -354,8 +360,6 @@ export async function initializeDatabase() {
   }
   
   try {
-    const fs = require('fs');
-    const path = require('path');
     const schemaPath = path.join(process.cwd(), 'lib/db/schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8');
     

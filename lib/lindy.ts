@@ -17,13 +17,13 @@ export interface LindyAgentRequest {
     end_time?: string;
     company_info?: string;
     slide_template?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
 export interface LindyAgentResponse {
   success: boolean;
-  output?: any;
+  output?: unknown;
   tokens_used?: number;
   error?: string;
 }
@@ -33,7 +33,7 @@ export interface LindyAgentResponse {
  */
 export async function callLindyAgent(
   agentId: string,
-  input: any,
+  input: Record<string, unknown>,
   apiKey?: string
 ): Promise<LindyAgentResponse> {
   try {

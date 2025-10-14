@@ -3,10 +3,11 @@ import { getProfileById, updateProfile } from '@/lib/db';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const profile = await getProfileById(parseInt(params.id));
+    const { id } = await params;
+    const profile = await getProfileById(parseInt(id));
     if (!profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
@@ -19,11 +20,12 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
-    const profile = await updateProfile(parseInt(params.id), body);
+    const profile = await updateProfile(parseInt(id), body);
     return NextResponse.json(profile);
   } catch (error) {
     console.error('Error updating profile:', error);
