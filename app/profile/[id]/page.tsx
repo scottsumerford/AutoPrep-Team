@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,13 +52,7 @@ export default function ProfilePage() {
   const [keywordFilter, setKeywordFilter] = useState('');
   const [manualEmail, setManualEmail] = useState('');
 
-  useEffect(() => {
-    fetchProfile();
-    fetchEvents();
-    fetchTokenStats();
-  }, [profileId]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const response = await fetch(`/api/profiles/${profileId}`);
       const data = await response.json();
@@ -70,9 +64,9 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profileId]);
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       const response = await fetch(`/api/calendar/${profileId}`);
       const data = await response.json();
@@ -80,9 +74,9 @@ export default function ProfilePage() {
     } catch (error) {
       console.error('Error fetching events:', error);
     }
-  };
+  }, [profileId]);
 
-  const fetchTokenStats = async () => {
+  const fetchTokenStats = useCallback(async () => {
     try {
       const response = await fetch(`/api/tokens/${profileId}`);
       const data = await response.json();
@@ -90,7 +84,13 @@ export default function ProfilePage() {
     } catch (error) {
       console.error('Error fetching token stats:', error);
     }
-  };
+  }, [profileId]);
+
+  useEffect(() => {
+    fetchProfile();
+    fetchEvents();
+    fetchTokenStats();
+  }, [fetchProfile, fetchEvents, fetchTokenStats]);
 
   const handleOperationModeToggle = async (checked: boolean) => {
     const newMode = checked ? 'auto-sync' : 'manual';
