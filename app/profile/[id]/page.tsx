@@ -8,7 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Calendar, FileText, Presentation, Upload, Mail, Filter } from 'lucide-react';
-// import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 
 interface Profile {
@@ -51,6 +60,8 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [keywordFilter, setKeywordFilter] = useState('');
   const [manualEmail, setManualEmail] = useState('');
+  const [showGoogleDialog, setShowGoogleDialog] = useState(false);
+  const [showOutlookDialog, setShowOutlookDialog] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -98,6 +109,7 @@ export default function ProfilePage() {
       document.title = `${profile.name} - AutoPrep.AI`;
     }
   }, [profile]);
+  
   const handleOperationModeToggle = async (checked: boolean) => {
     const newMode = checked ? 'auto-sync' : 'manual';
     try {
@@ -186,11 +198,11 @@ export default function ProfilePage() {
     }
   };
 
-  const handleGoogleAuth = () => {
+  const handleGoogleAuthConfirm = () => {
     window.location.href = `/api/auth/google?profile_id=${profileId}`;
   };
 
-  const handleOutlookAuth = () => {
+  const handleOutlookAuthConfirm = () => {
     window.location.href = `/api/auth/outlook?profile_id=${profileId}`;
   };
 
@@ -285,7 +297,7 @@ export default function ProfilePage() {
                 <div className="space-y-3 pt-4 border-t">
                   <Label className="text-sm font-medium">Authentication</Label>
                   <Button 
-                    onClick={handleGoogleAuth}
+                    onClick={() => setShowGoogleDialog(true)}
                     variant={profile.google_access_token ? "default" : "outline"}
                     className="w-full justify-start gap-2"
                   >
@@ -293,7 +305,7 @@ export default function ProfilePage() {
                     {profile.google_access_token ? 'Google Connected' : 'Connect Google'}
                   </Button>
                   <Button 
-                    onClick={handleOutlookAuth}
+                    onClick={() => setShowOutlookDialog(true)}
                     variant={profile.outlook_access_token ? "default" : "outline"}
                     className="w-full justify-start gap-2"
                   >
@@ -479,6 +491,44 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Google Auth Confirmation Dialog */}
+      <AlertDialog open={showGoogleDialog} onOpenChange={setShowGoogleDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Connect with Google</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will be redirected to Google to sign in and authorize AutoPrep to access your Google Calendar. 
+              This will allow us to automatically sync your calendar events and help you prepare for meetings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGoogleAuthConfirm}>
+              Continue to Google
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Outlook Auth Confirmation Dialog */}
+      <AlertDialog open={showOutlookDialog} onOpenChange={setShowOutlookDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Connect with Outlook</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will be redirected to Microsoft to sign in and authorize AutoPrep to access your Outlook Calendar. 
+              This will allow us to automatically sync your calendar events and help you prepare for meetings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleOutlookAuthConfirm}>
+              Continue to Outlook
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
