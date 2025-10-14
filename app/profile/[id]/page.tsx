@@ -92,6 +92,12 @@ export default function ProfilePage() {
     fetchTokenStats();
   }, [fetchProfile, fetchEvents, fetchTokenStats]);
 
+
+  useEffect(() => {
+    if (profile) {
+      document.title = `${profile.name} - AutoPrep.AI`;
+    }
+  }, [profile]);
   const handleOperationModeToggle = async (checked: boolean) => {
     const newMode = checked ? 'auto-sync' : 'manual';
     try {

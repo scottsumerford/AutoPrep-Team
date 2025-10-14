@@ -24,6 +24,7 @@ export default function HomePage() {
   const [newProfile, setNewProfile] = useState({ name: '', email: '', title: '' });
 
   useEffect(() => {
+    document.title = 'AutoPrep.AI Homepage';
     fetchProfiles();
   }, []);
 
