@@ -15,7 +15,7 @@ export default function PrivacyPolicyPage() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold mb-4">1. Introduction</h2>
               <p className="text-gray-700 dark:text-gray-300 mb-4">
-                Welcome to AutoPrep Team Dashboard ("we," "our," or "us"). We are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our calendar integration and pre-sales automation platform.
+                Welcome to AutoPrep Team Dashboard (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). We are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our calendar integration and pre-sales automation platform.
               </p>
               <p className="text-gray-700 dark:text-gray-300">
                 By using AutoPrep Team Dashboard, you agree to the collection and use of information in accordance with this policy.
@@ -121,7 +121,7 @@ export default function PrivacyPolicyPage() {
                 <li><strong>OAuth 2.0:</strong> We use secure OAuth 2.0 authentication for calendar connections</li>
                 <li><strong>Access Controls:</strong> Strict access controls limit who can access your data</li>
                 <li><strong>Regular Security Audits:</strong> We regularly review and update our security practices</li>
-                <li><strong>Secure Infrastructure:</strong> Our application is hosted on Vercel's secure infrastructure</li>
+                <li><strong>Secure Infrastructure:</strong> Our application is hosted on Vercel&apos;s secure infrastructure</li>
               </ul>
               <p className="text-gray-700 dark:text-gray-300 mt-4">
                 However, no method of transmission over the internet or electronic storage is 100% secure. While we strive to protect your information, we cannot guarantee absolute security.
@@ -169,7 +169,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold mb-4">8. Children's Privacy</h2>
+              <h2 className="text-2xl font-semibold mb-4">8. Children&apos;s Privacy</h2>
               <p className="text-gray-700 dark:text-gray-300 mb-4">
                 AutoPrep Team Dashboard is not intended for use by individuals under the age of 18. We do not knowingly collect personal information from children. If you believe we have collected information from a child, please contact us immediately.
               </p>
@@ -185,7 +185,7 @@ export default function PrivacyPolicyPage() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold mb-4">10. Changes to This Privacy Policy</h2>
               <p className="text-gray-700 dark:text-gray-300 mb-4">
-                We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last Updated" date. We encourage you to review this Privacy Policy periodically for any changes.
+                We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the &quot;Last Updated&quot; date. We encourage you to review this Privacy Policy periodically for any changes.
               </p>
               <p className="text-gray-700 dark:text-gray-300">
                 Your continued use of AutoPrep Team Dashboard after any modifications to this Privacy Policy constitutes your acceptance of the changes.
@@ -195,7 +195,7 @@ export default function PrivacyPolicyPage() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold mb-4">11. Google API Services User Data Policy</h2>
               <p className="text-gray-700 dark:text-gray-300 mb-4">
-                AutoPrep Team Dashboard's use and transfer of information received from Google APIs adheres to the{" "}
+                AutoPrep Team Dashboard&apos;s use and transfer of information received from Google APIs adheres to the{" "}
                 <a 
                   href="https://developers.google.com/terms/api-services-user-data-policy" 
                   target="_blank" 
