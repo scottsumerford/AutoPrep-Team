@@ -41,81 +41,203 @@ export interface TokenUsage {
   created_at: Date;
 }
 
+// Check if database is configured
+const isDatabaseConfigured = () => {
+  return !!process.env.POSTGRES_URL;
+};
+
+// In-memory storage for development (when database is not configured)
+let mockProfiles: Profile[] = [];
+let mockEvents: CalendarEvent[] = [];
+let mockTokenUsage: TokenUsage[] = [];
+let nextProfileId = 1;
+let nextEventId = 1;
+let nextTokenId = 1;
+
 // Database helper functions
 export async function getAllProfiles(): Promise<Profile[]> {
-  const { rows } = await sql<Profile>`SELECT * FROM profiles ORDER BY created_at DESC`;
-  return rows;
+  if (!isDatabaseConfigured()) {
+    return mockProfiles;
+  }
+  
+  try {
+    const { rows } = await sql<Profile>`SELECT * FROM profiles ORDER BY created_at DESC`;
+    return rows;
+  } catch (error) {
+    console.error('Database error, falling back to mock data:', error);
+    return mockProfiles;
+  }
 }
 
 export async function getProfileById(id: number): Promise<Profile | null> {
-  const { rows } = await sql<Profile>`SELECT * FROM profiles WHERE id = ${id}`;
-  return rows[0] || null;
+  if (!isDatabaseConfigured()) {
+    return mockProfiles.find(p => p.id === id) || null;
+  }
+  
+  try {
+    const { rows } = await sql<Profile>`SELECT * FROM profiles WHERE id = ${id}`;
+    return rows[0] || null;
+  } catch (error) {
+    console.error('Database error, falling back to mock data:', error);
+    return mockProfiles.find(p => p.id === id) || null;
+  }
 }
 
 export async function createProfile(data: Partial<Profile>): Promise<Profile> {
-  const { rows } = await sql<Profile>`
-    INSERT INTO profiles (name, email, title, operation_mode)
-    VALUES (${data.name}, ${data.email}, ${data.title || ''}, ${data.operation_mode || 'auto-sync'})
-    RETURNING *
-  `;
-  return rows[0];
+  const newProfile: Profile = {
+    id: nextProfileId++,
+    name: data.name || '',
+    email: data.email || '',
+    title: data.title,
+    operation_mode: data.operation_mode || 'auto-sync',
+    created_at: new Date(),
+    updated_at: new Date()
+  };
+  
+  if (!isDatabaseConfigured()) {
+    mockProfiles.push(newProfile);
+    return newProfile;
+  }
+  
+  try {
+    const { rows } = await sql<Profile>`
+      INSERT INTO profiles (name, email, title, operation_mode)
+      VALUES (${data.name}, ${data.email}, ${data.title || ''}, ${data.operation_mode || 'auto-sync'})
+      RETURNING *
+    `;
+    return rows[0];
+  } catch (error) {
+    console.error('Database error, falling back to mock data:', error);
+    mockProfiles.push(newProfile);
+    return newProfile;
+  }
 }
 
 export async function updateProfile(id: number, data: Partial<Profile>): Promise<Profile> {
-  const updates: string[] = [];
-  const values: any[] = [];
-  let paramIndex = 1;
-
-  Object.entries(data).forEach(([key, value]) => {
-    if (value !== undefined && key !== 'id') {
-      updates.push(`${key} = $${paramIndex}`);
-      values.push(value);
-      paramIndex++;
+  if (!isDatabaseConfigured()) {
+    const index = mockProfiles.findIndex(p => p.id === id);
+    if (index !== -1) {
+      mockProfiles[index] = { ...mockProfiles[index], ...data, updated_at: new Date() };
+      return mockProfiles[index];
     }
-  });
+    throw new Error('Profile not found');
+  }
+  
+  try {
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
 
-  updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && key !== 'id') {
+        updates.push(`${key} = $${paramIndex}`);
+        values.push(value);
+        paramIndex++;
+      }
+    });
 
-  const query = `UPDATE profiles SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
-  values.push(id);
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
 
-  const { rows } = await sql.query(query, values);
-  return rows[0];
+    const query = `UPDATE profiles SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
+    values.push(id);
+
+    const { rows } = await sql.query(query, values);
+    return rows[0];
+  } catch (error) {
+    console.error('Database error, falling back to mock data:', error);
+    const index = mockProfiles.findIndex(p => p.id === id);
+    if (index !== -1) {
+      mockProfiles[index] = { ...mockProfiles[index], ...data, updated_at: new Date() };
+      return mockProfiles[index];
+    }
+    throw error;
+  }
 }
 
 export async function getCalendarEvents(profileId: number, keywordFilter?: string): Promise<CalendarEvent[]> {
-  if (keywordFilter) {
+  if (!isDatabaseConfigured()) {
+    let events = mockEvents.filter(e => e.profile_id === profileId);
+    if (keywordFilter) {
+      events = events.filter(e => e.title.toLowerCase().includes(keywordFilter.toLowerCase()));
+    }
+    return events;
+  }
+  
+  try {
+    if (keywordFilter) {
+      const { rows } = await sql<CalendarEvent>`
+        SELECT * FROM calendar_events 
+        WHERE profile_id = ${profileId} 
+        AND title ILIKE ${`%${keywordFilter}%`}
+        ORDER BY start_time DESC
+      `;
+      return rows;
+    }
+    
     const { rows } = await sql<CalendarEvent>`
       SELECT * FROM calendar_events 
-      WHERE profile_id = ${profileId} 
-      AND title ILIKE ${`%${keywordFilter}%`}
+      WHERE profile_id = ${profileId}
       ORDER BY start_time DESC
     `;
     return rows;
+  } catch (error) {
+    console.error('Database error, falling back to mock data:', error);
+    let events = mockEvents.filter(e => e.profile_id === profileId);
+    if (keywordFilter) {
+      events = events.filter(e => e.title.toLowerCase().includes(keywordFilter.toLowerCase()));
+    }
+    return events;
   }
-  
-  const { rows } = await sql<CalendarEvent>`
-    SELECT * FROM calendar_events 
-    WHERE profile_id = ${profileId}
-    ORDER BY start_time DESC
-  `;
-  return rows;
 }
 
 export async function saveCalendarEvent(data: Partial<CalendarEvent>): Promise<CalendarEvent> {
-  const { rows } = await sql<CalendarEvent>`
-    INSERT INTO calendar_events (profile_id, event_id, title, description, start_time, end_time, attendees, source)
-    VALUES (${data.profile_id}, ${data.event_id}, ${data.title}, ${data.description || ''}, 
-            ${data.start_time}, ${data.end_time}, ${data.attendees || []}, ${data.source})
-    ON CONFLICT (event_id) DO UPDATE SET
-      title = EXCLUDED.title,
-      description = EXCLUDED.description,
-      start_time = EXCLUDED.start_time,
-      end_time = EXCLUDED.end_time,
-      attendees = EXCLUDED.attendees
-    RETURNING *
-  `;
-  return rows[0];
+  const newEvent: CalendarEvent = {
+    id: nextEventId++,
+    profile_id: data.profile_id!,
+    event_id: data.event_id!,
+    title: data.title || '',
+    description: data.description,
+    start_time: data.start_time!,
+    end_time: data.end_time!,
+    attendees: data.attendees,
+    source: data.source!,
+    created_at: new Date()
+  };
+  
+  if (!isDatabaseConfigured()) {
+    const existingIndex = mockEvents.findIndex(e => e.event_id === data.event_id);
+    if (existingIndex !== -1) {
+      mockEvents[existingIndex] = { ...mockEvents[existingIndex], ...newEvent };
+      return mockEvents[existingIndex];
+    }
+    mockEvents.push(newEvent);
+    return newEvent;
+  }
+  
+  try {
+    const { rows } = await sql<CalendarEvent>`
+      INSERT INTO calendar_events (profile_id, event_id, title, description, start_time, end_time, attendees, source)
+      VALUES (${data.profile_id}, ${data.event_id}, ${data.title}, ${data.description || ''}, 
+              ${data.start_time}, ${data.end_time}, ${data.attendees || []}, ${data.source})
+      ON CONFLICT (event_id) DO UPDATE SET
+        title = EXCLUDED.title,
+        description = EXCLUDED.description,
+        start_time = EXCLUDED.start_time,
+        end_time = EXCLUDED.end_time,
+        attendees = EXCLUDED.attendees
+      RETURNING *
+    `;
+    return rows[0];
+  } catch (error) {
+    console.error('Database error, falling back to mock data:', error);
+    const existingIndex = mockEvents.findIndex(e => e.event_id === data.event_id);
+    if (existingIndex !== -1) {
+      mockEvents[existingIndex] = { ...mockEvents[existingIndex], ...newEvent };
+      return mockEvents[existingIndex];
+    }
+    mockEvents.push(newEvent);
+    return newEvent;
+  }
 }
 
 export async function trackTokenUsage(data: {
@@ -125,22 +247,52 @@ export async function trackTokenUsage(data: {
   lindy_agent_id?: string;
   event_id?: number;
 }): Promise<TokenUsage> {
-  const { rows } = await sql<TokenUsage>`
-    INSERT INTO token_usage (profile_id, operation_type, tokens_used, lindy_agent_id, event_id)
-    VALUES (${data.profile_id}, ${data.operation_type}, ${data.tokens_used}, 
-            ${data.lindy_agent_id || null}, ${data.event_id || null})
-    RETURNING *
-  `;
-  return rows[0];
+  const newUsage: TokenUsage = {
+    id: nextTokenId++,
+    profile_id: data.profile_id,
+    operation_type: data.operation_type,
+    tokens_used: data.tokens_used,
+    lindy_agent_id: data.lindy_agent_id,
+    event_id: data.event_id,
+    created_at: new Date()
+  };
+  
+  if (!isDatabaseConfigured()) {
+    mockTokenUsage.push(newUsage);
+    return newUsage;
+  }
+  
+  try {
+    const { rows } = await sql<TokenUsage>`
+      INSERT INTO token_usage (profile_id, operation_type, tokens_used, lindy_agent_id, event_id)
+      VALUES (${data.profile_id}, ${data.operation_type}, ${data.tokens_used}, 
+              ${data.lindy_agent_id || null}, ${data.event_id || null})
+      RETURNING *
+    `;
+    return rows[0];
+  } catch (error) {
+    console.error('Database error, falling back to mock data:', error);
+    mockTokenUsage.push(newUsage);
+    return newUsage;
+  }
 }
 
 export async function getTokenUsageByProfile(profileId: number): Promise<TokenUsage[]> {
-  const { rows } = await sql<TokenUsage>`
-    SELECT * FROM token_usage 
-    WHERE profile_id = ${profileId}
-    ORDER BY created_at DESC
-  `;
-  return rows;
+  if (!isDatabaseConfigured()) {
+    return mockTokenUsage.filter(t => t.profile_id === profileId);
+  }
+  
+  try {
+    const { rows } = await sql<TokenUsage>`
+      SELECT * FROM token_usage 
+      WHERE profile_id = ${profileId}
+      ORDER BY created_at DESC
+    `;
+    return rows;
+  } catch (error) {
+    console.error('Database error, falling back to mock data:', error);
+    return mockTokenUsage.filter(t => t.profile_id === profileId);
+  }
 }
 
 export async function getTotalTokensByType(profileId: number): Promise<{
@@ -149,34 +301,59 @@ export async function getTotalTokensByType(profileId: number): Promise<{
   slides_generation: number;
   total: number;
 }> {
-  const { rows } = await sql`
-    SELECT 
-      operation_type,
-      SUM(tokens_used) as total
-    FROM token_usage
-    WHERE profile_id = ${profileId}
-    GROUP BY operation_type
-  `;
-
   const result = {
     agent_run: 0,
     presales_report: 0,
     slides_generation: 0,
     total: 0
   };
+  
+  if (!isDatabaseConfigured()) {
+    mockTokenUsage
+      .filter(t => t.profile_id === profileId)
+      .forEach(t => {
+        result[t.operation_type] += t.tokens_used;
+        result.total += t.tokens_used;
+      });
+    return result;
+  }
+  
+  try {
+    const { rows } = await sql`
+      SELECT 
+        operation_type,
+        SUM(tokens_used) as total
+      FROM token_usage
+      WHERE profile_id = ${profileId}
+      GROUP BY operation_type
+    `;
 
-  rows.forEach((row: any) => {
-    result[row.operation_type as keyof typeof result] = parseInt(row.total);
-    result.total += parseInt(row.total);
-  });
+    rows.forEach((row: any) => {
+      result[row.operation_type as keyof typeof result] = parseInt(row.total);
+      result.total += parseInt(row.total);
+    });
 
-  return result;
+    return result;
+  } catch (error) {
+    console.error('Database error, falling back to mock data:', error);
+    mockTokenUsage
+      .filter(t => t.profile_id === profileId)
+      .forEach(t => {
+        result[t.operation_type] += t.tokens_used;
+        result.total += t.tokens_used;
+      });
+    return result;
+  }
 }
 
 // Initialize database tables
 export async function initializeDatabase() {
+  if (!isDatabaseConfigured()) {
+    console.log('Database not configured, using in-memory storage');
+    return;
+  }
+  
   try {
-    // Read and execute schema
     const fs = require('fs');
     const path = require('path');
     const schemaPath = path.join(process.cwd(), 'lib/db/schema.sql');
