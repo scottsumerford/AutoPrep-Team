@@ -45,7 +45,8 @@ export interface TokenUsage {
 
 // Check if database is configured
 const isDatabaseConfigured = () => {
-  return !!process.env.POSTGRES_URL;
+  // Check for both POSTGRES_URL and autoprep_POSTGRES_URL (Vercel naming)
+  return !!(process.env.POSTGRES_URL || process.env.autoprep_POSTGRES_URL);
 };
 
 // In-memory storage for development (when database is not configured)
@@ -59,6 +60,7 @@ let nextTokenId = 1;
 // Database helper functions
 export async function getAllProfiles(): Promise<Profile[]> {
   if (!isDatabaseConfigured()) {
+    console.log('Database not configured, using mock data');
     return mockProfiles;
   }
   
@@ -97,19 +99,23 @@ export async function createProfile(data: Partial<Profile>): Promise<Profile> {
   };
   
   if (!isDatabaseConfigured()) {
+    console.log('Database not configured, saving to mock data');
     mockProfiles.push(newProfile);
     return newProfile;
   }
   
   try {
+    console.log('Creating profile in database:', data);
     const { rows } = await sql<Profile>`
       INSERT INTO profiles (name, email, title, operation_mode)
       VALUES (${data.name}, ${data.email}, ${data.title || ''}, ${data.operation_mode || 'auto-sync'})
       RETURNING *
     `;
+    console.log('Profile created successfully:', rows[0]);
     return rows[0];
   } catch (error) {
-    console.error('Database error, falling back to mock data:', error);
+    console.error('Database error creating profile:', error);
+    console.log('Falling back to mock data');
     mockProfiles.push(newProfile);
     return newProfile;
   }
