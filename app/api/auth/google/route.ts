@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { updateProfile } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -28,6 +28,10 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const actualProfileId = state || profileId;
 
+    if (!actualProfileId) {
+      throw new Error('Profile ID is required');
+    }
+
     console.log('Google OAuth callback - Profile ID:', actualProfileId);
 
     // Exchange code for tokens
@@ -53,14 +57,12 @@ export async function GET(request: NextRequest) {
       throw new Error(tokens.error_description || tokens.error);
     }
 
-    // Update profile with access token - using default sql import
+    // Update profile with access token using the shared database module
     console.log('Updating profile with tokens...');
-    await sql`
-      UPDATE profiles 
-      SET google_access_token = ${tokens.access_token},
-          google_refresh_token = ${tokens.refresh_token || null}
-      WHERE id = ${actualProfileId}
-    `;
+    await updateProfile(parseInt(actualProfileId), {
+      google_access_token: tokens.access_token,
+      google_refresh_token: tokens.refresh_token || undefined
+    });
     console.log('Profile updated successfully');
 
     // Redirect back to profile page
