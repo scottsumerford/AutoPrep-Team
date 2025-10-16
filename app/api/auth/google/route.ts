@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createPool } from '@vercel/postgres';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -32,6 +33,8 @@ export async function GET(request: NextRequest) {
       hasClientId: !!process.env.GOOGLE_CLIENT_ID,
       hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
       hasAppUrl: !!process.env.NEXT_PUBLIC_APP_URL,
+      hasPostgresUrl: !!process.env.POSTGRES_URL,
+      hasPrismaUrl: !!process.env.POSTGRES_PRISMA_URL,
       appUrl: process.env.NEXT_PUBLIC_APP_URL
     });
 
@@ -52,17 +55,21 @@ export async function GET(request: NextRequest) {
 
     const tokens = await tokenResponse.json();
     console.log('Token response status:', tokenResponse.status);
-    console.log('Token response:', tokens);
 
     if (tokens.error) {
       console.error('Google token error:', tokens.error, tokens.error_description);
       throw new Error(tokens.error_description || tokens.error);
     }
 
-    // Update profile with access token
-    const { sql } = await import('@vercel/postgres');
+    // Update profile with access token using explicit connection string
+    const connectionString = process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL;
+    if (!connectionString) {
+      throw new Error('No database connection string found in environment variables');
+    }
+
+    const db = createPool({ connectionString });
     console.log('Updating profile with tokens...');
-    await sql`
+    await db.sql`
       UPDATE profiles 
       SET google_access_token = ${tokens.access_token},
           google_refresh_token = ${tokens.refresh_token || null}
