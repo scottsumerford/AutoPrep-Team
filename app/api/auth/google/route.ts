@@ -27,6 +27,14 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const actualProfileId = state || profileId;
 
+    console.log('Google OAuth callback - Profile ID:', actualProfileId);
+    console.log('Environment check:', {
+      hasClientId: !!process.env.GOOGLE_CLIENT_ID,
+      hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+      hasAppUrl: !!process.env.NEXT_PUBLIC_APP_URL,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL
+    });
+
     // Exchange code for tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -43,26 +51,38 @@ export async function GET(request: NextRequest) {
     });
 
     const tokens = await tokenResponse.json();
+    console.log('Token response status:', tokenResponse.status);
+    console.log('Token response:', tokens);
 
     if (tokens.error) {
+      console.error('Google token error:', tokens.error, tokens.error_description);
       throw new Error(tokens.error_description || tokens.error);
     }
 
     // Update profile with access token
     const { sql } = await import('@vercel/postgres');
+    console.log('Updating profile with tokens...');
     await sql`
       UPDATE profiles 
       SET google_access_token = ${tokens.access_token},
           google_refresh_token = ${tokens.refresh_token || null}
       WHERE id = ${actualProfileId}
     `;
+    console.log('Profile updated successfully');
 
     // Redirect back to profile page
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/profile/${actualProfileId}`);
   } catch (error) {
     console.error('Google OAuth error:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
-      { error: 'Failed to authenticate with Google' },
+      { 
+        error: 'Failed to authenticate with Google',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
