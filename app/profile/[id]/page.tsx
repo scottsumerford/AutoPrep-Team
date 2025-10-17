@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Calendar, FileText, Presentation, Upload, Mail, Filter } from 'lucide-react';
+import { Calendar, FileText, Presentation, Upload, Mail, Filter, RefreshCw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,12 +52,14 @@ interface TokenStats {
 
 export default function ProfilePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const profileId = params.id as string;
   
   const [profile, setProfile] = useState<Profile | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [keywordFilter, setKeywordFilter] = useState('');
   const [manualEmail, setManualEmail] = useState('');
   const [showGoogleDialog, setShowGoogleDialog] = useState(false);
@@ -97,12 +99,51 @@ export default function ProfilePage() {
     }
   }, [profileId]);
 
+  const syncCalendar = useCallback(async () => {
+    if (!profile?.google_access_token && !profile?.outlook_access_token) {
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      const response = await fetch('/api/calendar/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile_id: profileId })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Calendar synced:', data);
+        await fetchEvents();
+      } else {
+        console.error('Failed to sync calendar');
+      }
+    } catch (error) {
+      console.error('Error syncing calendar:', error);
+    } finally {
+      setSyncing(false);
+    }
+  }, [profileId, profile, fetchEvents]);
+
   useEffect(() => {
     fetchProfile();
     fetchEvents();
     fetchTokenStats();
   }, [fetchProfile, fetchEvents, fetchTokenStats]);
 
+  // Auto-sync calendar when profile is loaded and has tokens
+  useEffect(() => {
+    if (profile && (profile.google_access_token || profile.outlook_access_token)) {
+      // Check if we just came back from OAuth (synced=true in URL)
+      const justSynced = searchParams.get('synced') === 'true';
+      
+      if (!justSynced) {
+        // Only auto-sync if we didn't just complete OAuth (which already synced)
+        syncCalendar();
+      }
+    }
+  }, [profile, searchParams, syncCalendar]);
 
   useEffect(() => {
     if (profile) {
@@ -312,6 +353,19 @@ export default function ProfilePage() {
                     <Mail className="w-4 h-4" />
                     {profile.outlook_access_token ? 'Outlook Connected' : 'Connect Outlook'}
                   </Button>
+                  
+                  {/* Manual Sync Button */}
+                  {(profile.google_access_token || profile.outlook_access_token) && (
+                    <Button 
+                      onClick={syncCalendar}
+                      disabled={syncing}
+                      variant="outline"
+                      className="w-full justify-start gap-2"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                      {syncing ? 'Syncing...' : 'Sync Calendar Now'}
+                    </Button>
+                  )}
                 </div>
 
                 {/* Operation Mode */}
@@ -443,7 +497,11 @@ export default function ProfilePage() {
               <CardContent>
                 {filteredEvents.length === 0 ? (
                   <div className="text-center py-8 text-slate-600 dark:text-slate-400">
-                    No events found. Connect your calendar to see events.
+                    {profile.google_access_token || profile.outlook_access_token
+                      ? syncing 
+                        ? 'Syncing calendar events...'
+                        : 'No events found. Try syncing your calendar.'
+                      : 'No events found. Connect your calendar to see events.'}
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -459,6 +517,11 @@ export default function ProfilePage() {
                           {event.description && (
                             <p className="text-sm text-slate-600 dark:text-slate-400">
                               {event.description}
+                            </p>
+                          )}
+                          {event.attendees && event.attendees.length > 0 && (
+                            <p className="text-xs text-slate-500">
+                              Attendees: {event.attendees.join(', ')}
                             </p>
                           )}
                           <div className="flex gap-2">

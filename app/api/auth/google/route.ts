@@ -65,8 +65,31 @@ export async function GET(request: NextRequest) {
     });
     console.log('Profile updated successfully');
 
+    // Trigger calendar sync
+    try {
+      console.log('Triggering calendar sync...');
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+      const syncResponse = await fetch(`${baseUrl}/api/calendar/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ profile_id: actualProfileId }),
+      });
+
+      if (syncResponse.ok) {
+        const syncData = await syncResponse.json();
+        console.log('Calendar sync successful:', syncData);
+      } else {
+        console.error('Calendar sync failed:', await syncResponse.text());
+      }
+    } catch (syncError) {
+      console.error('Error triggering calendar sync:', syncError);
+      // Don't fail the OAuth flow if sync fails
+    }
+
     // Redirect back to profile page
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/profile/${actualProfileId}`);
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/profile/${actualProfileId}?synced=true`);
   } catch (error) {
     console.error('Google OAuth error:', error);
     console.error('Error details:', {
