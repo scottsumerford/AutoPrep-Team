@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
+import { CalendarView } from './calendar-view';
 
 interface Profile {
   id: number;
@@ -475,13 +476,16 @@ export default function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Placeholder for calendar component */}
-                <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-8 text-center">
-                  <Calendar className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-                  <p className="text-slate-600 dark:text-slate-400">
-                    Calendar view will appear here once connected
-                  </p>
-                </div>
+                {profile.google_access_token || profile.outlook_access_token ? (
+                  <CalendarView events={events} />
+                ) : (
+                  <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-8 text-center">
+                    <Calendar className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Calendar view will appear here once connected
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
