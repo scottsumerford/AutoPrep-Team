@@ -116,12 +116,16 @@ export default function ProfilePage() {
       if (response.ok) {
         const data = await response.json();
         console.log('Calendar synced:', data);
+        alert(`✅ Calendar synced successfully! ${data.synced_events || 0} events imported.`);
         await fetchEvents();
       } else {
-        console.error('Failed to sync calendar');
+        const errorData = await response.json();
+        console.error('Failed to sync calendar:', errorData);
+        alert(`❌ Failed to sync calendar: ${errorData.error || 'Unknown error'}\n\nDetails: ${errorData.details || 'No details available'}`);
       }
     } catch (error) {
       console.error('Error syncing calendar:', error);
+      alert(`❌ Error syncing calendar: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSyncing(false);
     }
