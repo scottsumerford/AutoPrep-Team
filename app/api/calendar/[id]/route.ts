@@ -7,10 +7,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const keywordFilter = searchParams.get('filter') || undefined;
     
-    const events = await getCalendarEvents(parseInt(id), keywordFilter);
+    const events = await getCalendarEvents(parseInt(id));
     return NextResponse.json(events);
   } catch (error) {
     console.error('Error fetching calendar events:', error);
