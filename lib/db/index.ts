@@ -1,18 +1,20 @@
 import "./config";
 import { sql } from '@vercel/postgres';
-import * as fs from 'fs';
-import * as path from 'path';
 
-// Configure the connection string for @vercel/postgres
-// It will use POSTGRES_URL or autoprep_POSTGRES_URL automatically
-if (!process.env.POSTGRES_URL && process.env.autoprep_POSTGRES_URL) {
-  process.env.POSTGRES_URL = process.env.autoprep_POSTGRES_URL;
+// Log the connection string being used (without exposing the password)
+const connectionString = process.env.POSTGRES_URL;
+if (connectionString) {
+  const maskedUrl = connectionString.replace(/:([^@]+)@/, ':****@');
+  console.log('Database connection string:', maskedUrl);
+} else {
+  console.error('No POSTGRES_URL found!');
 }
 
 export interface Profile {
   id: number;
   name: string;
   email: string;
+  url_slug: string;  // Added: URL-friendly version of name (e.g., "john-doe")
   title?: string;
   google_access_token?: string;
   google_refresh_token?: string;
@@ -50,10 +52,19 @@ export interface TokenUsage {
   created_at: Date;
 }
 
-// Check if database is configured
+export interface FileUpload {
+  id: number;
+  profile_id: number;
+  file_type: 'slide_template' | 'company_info';
+  file_name: string;
+  file_url: string;
+  uploaded_at: Date;
+}
+
 const isDatabaseConfigured = () => {
-  // Check for both POSTGRES_URL and autoprep_POSTGRES_URL (Vercel naming)
-  return !!(process.env.POSTGRES_URL || process.env.autoprep_POSTGRES_URL);
+  const hasUrl = !!(process.env.POSTGRES_URL || process.env.autoprep_POSTGRES_URL);
+  console.log('Database configured:', hasUrl);
+  return hasUrl;
 };
 
 // In-memory storage for development (when database is not configured)
@@ -64,6 +75,16 @@ let nextProfileId = 1;
 let nextEventId = 1;
 let nextTokenId = 1;
 
+// Helper function to generate URL slug from name
+function generateUrlSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '-')      // Replace spaces with hyphens
+    .replace(/-+/g, '-');      // Replace multiple hyphens with single hyphen
+}
+
 // Database helper functions
 export async function getAllProfiles(): Promise<Profile[]> {
   if (!isDatabaseConfigured()) {
@@ -72,11 +93,63 @@ export async function getAllProfiles(): Promise<Profile[]> {
   }
   
   try {
+    console.log('Fetching all profiles from database...');
     const { rows } = await sql<Profile>`SELECT * FROM profiles ORDER BY created_at DESC`;
+    console.log(`Successfully fetched ${rows.length} profiles from database`);
     return rows;
   } catch (error) {
-    console.error('Database error, falling back to mock data:', error);
+    console.error('Database error fetching profiles:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      name: error instanceof Error ? error.name : 'Unknown',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    console.log('Falling back to mock data');
     return mockProfiles;
+  }
+}
+
+export async function createProfile(data: Partial<Profile>): Promise<Profile> {
+  // Generate URL slug from name
+  const urlSlug = data.name ? generateUrlSlug(data.name) : '';
+  
+  const newProfile: Profile = {
+    id: nextProfileId++,
+    name: data.name || '',
+    email: data.email || '',
+    url_slug: urlSlug,
+    title: data.title,
+    operation_mode: data.operation_mode || 'auto-sync',
+    created_at: new Date(),
+    updated_at: new Date()
+  };
+  
+  if (!isDatabaseConfigured()) {
+    console.log('Database not configured, saving to mock data');
+    mockProfiles.push(newProfile);
+    return newProfile;
+  }
+  
+  try {
+    console.log('Creating profile in database:', { name: data.name, email: data.email, url_slug: urlSlug });
+    const { rows } = await sql<Profile>`
+      INSERT INTO profiles (name, email, url_slug, title, operation_mode)
+      VALUES (${data.name}, ${data.email}, ${urlSlug}, ${data.title || ''}, ${data.operation_mode || 'auto-sync'})
+      RETURNING *
+    `;
+    console.log('Profile created successfully in database:', rows[0]);
+    return rows[0];
+  } catch (error) {
+    console.error('Database error creating profile:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      name: error instanceof Error ? error.name : 'Unknown',
+      code: (error as any).code,
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    console.log('Falling back to mock data');
+    mockProfiles.push(newProfile);
+    return newProfile;
   }
 }
 
@@ -94,151 +167,167 @@ export async function getProfileById(id: number): Promise<Profile | null> {
   }
 }
 
-export async function createProfile(data: Partial<Profile>): Promise<Profile> {
-  const newProfile: Profile = {
-    id: nextProfileId++,
-    name: data.name || '',
-    email: data.email || '',
-    title: data.title,
-    operation_mode: data.operation_mode || 'auto-sync',
-    created_at: new Date(),
-    updated_at: new Date()
-  };
-  
+export async function getProfileBySlug(slug: string): Promise<Profile | null> {
   if (!isDatabaseConfigured()) {
-    console.log('Database not configured, saving to mock data');
-    mockProfiles.push(newProfile);
-    return newProfile;
+    return mockProfiles.find(p => p.url_slug === slug) || null;
   }
   
   try {
-    console.log('Creating profile in database:', data);
-    const { rows } = await sql<Profile>`
-      INSERT INTO profiles (name, email, title, operation_mode)
-      VALUES (${data.name}, ${data.email}, ${data.title || ''}, ${data.operation_mode || 'auto-sync'})
-      RETURNING *
-    `;
-    console.log('Profile created successfully:', rows[0]);
-    return rows[0];
+    const { rows } = await sql<Profile>`SELECT * FROM profiles WHERE url_slug = ${slug}`;
+    return rows[0] || null;
   } catch (error) {
-    console.error('Database error creating profile:', error);
-    console.log('Falling back to mock data');
-    mockProfiles.push(newProfile);
-    return newProfile;
+    console.error('Database error, falling back to mock data:', error);
+    return mockProfiles.find(p => p.url_slug === slug) || null;
   }
 }
 
-export async function updateProfile(id: number, data: Partial<Profile>): Promise<Profile> {
+export async function updateProfile(id: number, data: Partial<Profile>): Promise<Profile | null> {
   if (!isDatabaseConfigured()) {
     const index = mockProfiles.findIndex(p => p.id === id);
-    if (index !== -1) {
-      mockProfiles[index] = { ...mockProfiles[index], ...data, updated_at: new Date() };
-      return mockProfiles[index];
-    }
-    throw new Error('Profile not found');
+    if (index === -1) return null;
+    mockProfiles[index] = { ...mockProfiles[index], ...data, updated_at: new Date() };
+    return mockProfiles[index];
   }
   
   try {
     const updates: string[] = [];
-    const values: unknown[] = [];
+    const values: any[] = [];
     let paramIndex = 1;
 
-    Object.entries(data).forEach(([key, value]) => {
-      if (value !== undefined && key !== 'id') {
-        updates.push(`${key} = $${paramIndex}`);
-        values.push(value);
-        paramIndex++;
-      }
-    });
+    if (data.name !== undefined) {
+      updates.push(`name = $${paramIndex++}`);
+      values.push(data.name);
+    }
+    if (data.email !== undefined) {
+      updates.push(`email = $${paramIndex++}`);
+      values.push(data.email);
+    }
+    if (data.title !== undefined) {
+      updates.push(`title = $${paramIndex++}`);
+      values.push(data.title);
+    }
+    if (data.google_access_token !== undefined) {
+      updates.push(`google_access_token = $${paramIndex++}`);
+      values.push(data.google_access_token);
+    }
+    if (data.google_refresh_token !== undefined) {
+      updates.push(`google_refresh_token = $${paramIndex++}`);
+      values.push(data.google_refresh_token);
+    }
+    if (data.outlook_access_token !== undefined) {
+      updates.push(`outlook_access_token = $${paramIndex++}`);
+      values.push(data.outlook_access_token);
+    }
+    if (data.outlook_refresh_token !== undefined) {
+      updates.push(`outlook_refresh_token = $${paramIndex++}`);
+      values.push(data.outlook_refresh_token);
+    }
+    if (data.operation_mode !== undefined) {
+      updates.push(`operation_mode = $${paramIndex++}`);
+      values.push(data.operation_mode);
+    }
+    if (data.manual_email !== undefined) {
+      updates.push(`manual_email = $${paramIndex++}`);
+      values.push(data.manual_email);
+    }
+    if (data.keyword_filter !== undefined) {
+      updates.push(`keyword_filter = $${paramIndex++}`);
+      values.push(data.keyword_filter);
+    }
+    if (data.slide_template_url !== undefined) {
+      updates.push(`slide_template_url = $${paramIndex++}`);
+      values.push(data.slide_template_url);
+    }
+    if (data.company_info_url !== undefined) {
+      updates.push(`company_info_url = $${paramIndex++}`);
+      values.push(data.company_info_url);
+    }
 
-    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    updates.push(`updated_at = $${paramIndex++}`);
+    values.push(new Date());
 
-    const query = `UPDATE profiles SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
     values.push(id);
 
+    const query = `
+      UPDATE profiles 
+      SET ${updates.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
     const { rows } = await sql.query(query, values);
-    return rows[0];
+    return rows[0] || null;
   } catch (error) {
     console.error('Database error, falling back to mock data:', error);
     const index = mockProfiles.findIndex(p => p.id === id);
-    if (index !== -1) {
-      mockProfiles[index] = { ...mockProfiles[index], ...data, updated_at: new Date() };
-      return mockProfiles[index];
-    }
-    throw error;
+    if (index === -1) return null;
+    mockProfiles[index] = { ...mockProfiles[index], ...data, updated_at: new Date() };
+    return mockProfiles[index];
   }
 }
 
-export async function getCalendarEvents(profileId: number, keywordFilter?: string): Promise<CalendarEvent[]> {
+export async function deleteProfile(id: number): Promise<boolean> {
   if (!isDatabaseConfigured()) {
-    let events = mockEvents.filter(e => e.profile_id === profileId);
-    if (keywordFilter) {
-      events = events.filter(e => e.title.toLowerCase().includes(keywordFilter.toLowerCase()));
-    }
-    return events;
+    const index = mockProfiles.findIndex(p => p.id === id);
+    if (index === -1) return false;
+    mockProfiles.splice(index, 1);
+    return true;
   }
   
   try {
-    if (keywordFilter) {
-      const { rows } = await sql<CalendarEvent>`
-        SELECT * FROM calendar_events 
-        WHERE profile_id = ${profileId} 
-        AND title ILIKE ${`%${keywordFilter}%`}
-        ORDER BY start_time DESC
-      `;
-      return rows;
-    }
-    
+    await sql`DELETE FROM profiles WHERE id = ${id}`;
+    return true;
+  } catch (error) {
+    console.error('Database error, falling back to mock data:', error);
+    const index = mockProfiles.findIndex(p => p.id === id);
+    if (index === -1) return false;
+    mockProfiles.splice(index, 1);
+    return true;
+  }
+}
+
+// Calendar Events
+export async function getCalendarEvents(profileId: number): Promise<CalendarEvent[]> {
+  if (!isDatabaseConfigured()) {
+    return mockEvents.filter(e => e.profile_id === profileId);
+  }
+  
+  try {
     const { rows } = await sql<CalendarEvent>`
       SELECT * FROM calendar_events 
       WHERE profile_id = ${profileId}
-      ORDER BY start_time DESC
+      ORDER BY start_time ASC
     `;
     return rows;
   } catch (error) {
     console.error('Database error, falling back to mock data:', error);
-    let events = mockEvents.filter(e => e.profile_id === profileId);
-    if (keywordFilter) {
-      events = events.filter(e => e.title.toLowerCase().includes(keywordFilter.toLowerCase()));
-    }
-    return events;
+    return mockEvents.filter(e => e.profile_id === profileId);
   }
 }
 
-export async function saveCalendarEvent(data: Partial<CalendarEvent>): Promise<CalendarEvent> {
+export async function saveCalendarEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>): Promise<CalendarEvent> {
   const newEvent: CalendarEvent = {
     id: nextEventId++,
-    profile_id: data.profile_id!,
-    event_id: data.event_id!,
-    title: data.title || '',
-    description: data.description,
-    start_time: data.start_time!,
-    end_time: data.end_time!,
-    attendees: data.attendees,
-    source: data.source!,
+    ...data,
     created_at: new Date()
   };
   
   if (!isDatabaseConfigured()) {
-    const existingIndex = mockEvents.findIndex(e => e.event_id === data.event_id);
-    if (existingIndex !== -1) {
-      mockEvents[existingIndex] = { ...mockEvents[existingIndex], ...newEvent };
-      return mockEvents[existingIndex];
-    }
     mockEvents.push(newEvent);
     return newEvent;
   }
   
   try {
-    // Convert Date objects to ISO strings for database storage
-    const startTime = data.start_time instanceof Date ? data.start_time.toISOString() : data.start_time;
-    const endTime = data.end_time instanceof Date ? data.end_time.toISOString() : data.end_time;
-    
     const { rows } = await sql<CalendarEvent>`
-      INSERT INTO calendar_events (profile_id, event_id, title, description, start_time, end_time, attendees, source)
-      VALUES (${data.profile_id}, ${data.event_id}, ${data.title}, ${data.description || ''}, 
-              ${startTime}, ${endTime}, ${JSON.stringify(data.attendees || [])}, ${data.source})
-      ON CONFLICT (event_id) DO UPDATE SET
+      INSERT INTO calendar_events (
+        profile_id, event_id, title, description, start_time, end_time, attendees, source
+      )
+      VALUES (
+        ${data.profile_id}, ${data.event_id}, ${data.title}, ${data.description || null},
+        ${data.start_time}, ${data.end_time}, ${JSON.stringify(data.attendees || [])}, ${data.source}
+      )
+      ON CONFLICT (profile_id, event_id) 
+      DO UPDATE SET
         title = EXCLUDED.title,
         description = EXCLUDED.description,
         start_time = EXCLUDED.start_time,
@@ -249,30 +338,16 @@ export async function saveCalendarEvent(data: Partial<CalendarEvent>): Promise<C
     return rows[0];
   } catch (error) {
     console.error('Database error, falling back to mock data:', error);
-    const existingIndex = mockEvents.findIndex(e => e.event_id === data.event_id);
-    if (existingIndex !== -1) {
-      mockEvents[existingIndex] = { ...mockEvents[existingIndex], ...newEvent };
-      return mockEvents[existingIndex];
-    }
     mockEvents.push(newEvent);
     return newEvent;
   }
 }
 
-export async function trackTokenUsage(data: {
-  profile_id: number;
-  operation_type: 'agent_run' | 'presales_report' | 'slides_generation';
-  tokens_used: number;
-  lindy_agent_id?: string;
-  event_id?: number;
-}): Promise<TokenUsage> {
+// Token Usage
+export async function logTokenUsage(data: Omit<TokenUsage, 'id' | 'created_at'>): Promise<TokenUsage> {
   const newUsage: TokenUsage = {
     id: nextTokenId++,
-    profile_id: data.profile_id,
-    operation_type: data.operation_type,
-    tokens_used: data.tokens_used,
-    lindy_agent_id: data.lindy_agent_id,
-    event_id: data.event_id,
+    ...data,
     created_at: new Date()
   };
   
@@ -283,9 +358,13 @@ export async function trackTokenUsage(data: {
   
   try {
     const { rows } = await sql<TokenUsage>`
-      INSERT INTO token_usage (profile_id, operation_type, tokens_used, lindy_agent_id, event_id)
-      VALUES (${data.profile_id}, ${data.operation_type}, ${data.tokens_used}, 
-              ${data.lindy_agent_id || null}, ${data.event_id || null})
+      INSERT INTO token_usage (
+        profile_id, operation_type, tokens_used, lindy_agent_id, event_id
+      )
+      VALUES (
+        ${data.profile_id}, ${data.operation_type}, ${data.tokens_used},
+        ${data.lindy_agent_id || null}, ${data.event_id || null}
+      )
       RETURNING *
     `;
     return rows[0];
@@ -296,7 +375,7 @@ export async function trackTokenUsage(data: {
   }
 }
 
-export async function getTokenUsageByProfile(profileId: number): Promise<TokenUsage[]> {
+export async function getTokenUsage(profileId: number): Promise<TokenUsage[]> {
   if (!isDatabaseConfigured()) {
     return mockTokenUsage.filter(t => t.profile_id === profileId);
   }
@@ -314,72 +393,89 @@ export async function getTokenUsageByProfile(profileId: number): Promise<TokenUs
   }
 }
 
-export async function getTotalTokensByType(profileId: number): Promise<{
-  agent_run: number;
-  presales_report: number;
-  slides_generation: number;
-  total: number;
-}> {
-  const result = {
-    agent_run: 0,
-    presales_report: 0,
-    slides_generation: 0,
-    total: 0
-  };
-  
+// Database initialization
+export async function initializeDatabase(): Promise<void> {
   if (!isDatabaseConfigured()) {
-    mockTokenUsage
-      .filter(t => t.profile_id === profileId)
-      .forEach(t => {
-        result[t.operation_type] += t.tokens_used;
-        result.total += t.tokens_used;
-      });
-    return result;
-  }
-  
-  try {
-    const { rows } = await sql`
-      SELECT 
-        operation_type,
-        SUM(tokens_used) as total
-      FROM token_usage
-      WHERE profile_id = ${profileId}
-      GROUP BY operation_type
-    `;
-
-    rows.forEach((row) => {
-      result[(row as { operation_type: string; total: string }).operation_type as keyof typeof result] = parseInt(row.total);
-      result.total += parseInt((row as { operation_type: string; total: string }).total);
-    });
-
-    return result;
-  } catch (error) {
-    console.error('Database error, falling back to mock data:', error);
-    mockTokenUsage
-      .filter(t => t.profile_id === profileId)
-      .forEach(t => {
-        result[t.operation_type] += t.tokens_used;
-        result.total += t.tokens_used;
-      });
-    return result;
-  }
-}
-
-// Initialize database tables
-export async function initializeDatabase() {
-  if (!isDatabaseConfigured()) {
-    console.log('Database not configured, using in-memory storage');
+    console.log('Database not configured, skipping initialization');
     return;
   }
   
   try {
-    const schemaPath = path.join(process.cwd(), 'lib/db/schema.sql');
-    const schema = fs.readFileSync(schemaPath, 'utf8');
+    console.log('Initializing database tables...');
     
-    await sql.query(schema);
-    console.log('Database initialized successfully');
+    // Create profiles table with url_slug
+    await sql`
+      CREATE TABLE IF NOT EXISTS profiles (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        url_slug VARCHAR(255) NOT NULL UNIQUE,
+        title VARCHAR(255),
+        google_access_token TEXT,
+        google_refresh_token TEXT,
+        outlook_access_token TEXT,
+        outlook_refresh_token TEXT,
+        operation_mode VARCHAR(50) DEFAULT 'auto-sync',
+        manual_email VARCHAR(255),
+        keyword_filter TEXT,
+        slide_template_url TEXT,
+        company_info_url TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    
+    // Create calendar_events table
+    await sql`
+      CREATE TABLE IF NOT EXISTS calendar_events (
+        id SERIAL PRIMARY KEY,
+        profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
+        event_id VARCHAR(255) NOT NULL,
+        title VARCHAR(500) NOT NULL,
+        description TEXT,
+        start_time TIMESTAMP NOT NULL,
+        end_time TIMESTAMP NOT NULL,
+        attendees JSONB,
+        source VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(profile_id, event_id)
+      )
+    `;
+    
+    // Create token_usage table
+    await sql`
+      CREATE TABLE IF NOT EXISTS token_usage (
+        id SERIAL PRIMARY KEY,
+        profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
+        operation_type VARCHAR(100) NOT NULL,
+        tokens_used INTEGER NOT NULL,
+        lindy_agent_id VARCHAR(255),
+        event_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    
+    // Create file_uploads table
+    await sql`
+      CREATE TABLE IF NOT EXISTS file_uploads (
+        id SERIAL PRIMARY KEY,
+        profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
+        file_type VARCHAR(50) NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        file_url TEXT NOT NULL,
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    
+    console.log('Database tables initialized successfully');
   } catch (error) {
     console.error('Error initializing database:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      name: error instanceof Error ? error.name : 'Unknown',
+      code: (error as any).code,
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw error;
   }
 }
