@@ -1,27 +1,17 @@
 // Configure database connection
-// This must run before any @vercel/postgres imports
+// The POSTGRES_URL environment variable should be set in Vercel
+// It must be a POOLED connection string (port 6543, not 5432)
+
 if (!process.env.POSTGRES_URL) {
-  // Try different possible environment variable names
-  // Priority order: autoprep_POSTGRES_URL (correct) > POSTGRES_PRISMA_URL > POSTGRES_URL_POSTGRES_URL (wrong)
-  const possibleVars = [
-    'autoprep_POSTGRES_URL',           // Correct connection string (added 2d ago)
-    'POSTGRES_PRISMA_URL',
-    'POSTGRES_URL_POSTGRES_PRISMA_URL',
-    'POSTGRES_URL_POSTGRES_URL'        // Wrong connection string (added 14h ago)
-  ];
-  
-  for (const varName of possibleVars) {
-    if (process.env[varName]) {
-      console.log(`Setting POSTGRES_URL from ${varName}`);
-      process.env.POSTGRES_URL = process.env[varName];
-      break;
-    }
-  }
-  
-  if (!process.env.POSTGRES_URL) {
-    console.error('No POSTGRES_URL found in environment variables');
-    console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('POSTGRES')));
-  }
+  console.error('❌ No POSTGRES_URL found in environment variables');
+  console.error('Available POSTGRES env vars:', Object.keys(process.env).filter(k => k.includes('POSTGRES')));
+} else {
+  console.log('✅ POSTGRES_URL is configured');
+  // Mask the connection string for security, but show the port to verify it's pooled
+  const url = process.env.POSTGRES_URL;
+  const portMatch = url.match(/:(\d+)\//);
+  const port = portMatch ? portMatch[1] : 'unknown';
+  console.log(`   Connection port: ${port} ${port === '6543' ? '(pooled ✅)' : port === '5432' ? '(direct ❌ - should be pooled!)' : ''}`);
 }
 
 export {};
