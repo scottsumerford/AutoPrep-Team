@@ -1,0 +1,21 @@
+// Import config first to set up environment
+import './config';
+import { createClient } from '@vercel/postgres';
+
+// Database connection - use createClient with explicit POSTGRES_URL
+function getDbClient() {
+  if (!process.env.POSTGRES_URL) {
+    throw new Error('POSTGRES_URL environment variable is not set');
+  }
+  
+  return createClient({
+    connectionString: process.env.POSTGRES_URL
+  });
+}
+
+// Test if database is configured
+export function isDatabaseConfigured(): boolean {
+  return !!process.env.POSTGRES_URL;
+}
+
+// Rest of the file remains the same...
