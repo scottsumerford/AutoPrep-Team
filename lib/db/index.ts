@@ -1,3 +1,4 @@
+import "./config";
 import { sql } from '@vercel/postgres';
 import * as fs from 'fs';
 import * as path from 'path';
