@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateSlides } from '@/lib/lindy';
-import { trackTokenUsage, getProfileById } from '@/lib/db';
+import { logTokenUsage, getProfileById } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     // Track token usage
     if (result.success && result.tokens_used) {
-      await trackTokenUsage({
+      await logTokenUsage({
         profile_id,
         operation_type: 'slides_generation',
         tokens_used: result.tokens_used,
