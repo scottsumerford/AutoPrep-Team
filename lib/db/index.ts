@@ -514,7 +514,7 @@ export async function getTotalTokensByType(profileId: number): Promise<{
       total: 0
     };
     
-    rows.forEach((row: { operation_type: string; total: string }) => {
+    rows.forEach((row) => {
       stats[row.operation_type as keyof typeof stats] = parseInt(row.total);
       stats.total += parseInt(row.total);
     });
