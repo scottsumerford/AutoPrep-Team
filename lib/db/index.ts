@@ -479,3 +479,55 @@ export async function initializeDatabase(): Promise<void> {
     throw error;
   }
 }
+
+// Get total tokens by type for a profile
+export async function getTotalTokensByType(profileId: number): Promise<{
+  agent_run: number;
+  presales_report: number;
+  slides_generation: number;
+  total: number;
+}> {
+  if (!isDatabaseConfigured()) {
+    const profileUsage = mockTokenUsage.filter(t => t.profile_id === profileId);
+    return {
+      agent_run: profileUsage.filter(t => t.operation_type === 'agent_run').reduce((sum, t) => sum + t.tokens_used, 0),
+      presales_report: profileUsage.filter(t => t.operation_type === 'presales_report').reduce((sum, t) => sum + t.tokens_used, 0),
+      slides_generation: profileUsage.filter(t => t.operation_type === 'slides_generation').reduce((sum, t) => sum + t.tokens_used, 0),
+      total: profileUsage.reduce((sum, t) => sum + t.tokens_used, 0)
+    };
+  }
+  
+  try {
+    const { rows } = await sql`
+      SELECT 
+        operation_type,
+        SUM(tokens_used) as total
+      FROM token_usage
+      WHERE profile_id = ${profileId}
+      GROUP BY operation_type
+    `;
+    
+    const stats = {
+      agent_run: 0,
+      presales_report: 0,
+      slides_generation: 0,
+      total: 0
+    };
+    
+    rows.forEach((row: any) => {
+      stats[row.operation_type as keyof typeof stats] = parseInt(row.total);
+      stats.total += parseInt(row.total);
+    });
+    
+    return stats;
+  } catch (error) {
+    console.error('Database error, falling back to mock data:', error);
+    const profileUsage = mockTokenUsage.filter(t => t.profile_id === profileId);
+    return {
+      agent_run: profileUsage.filter(t => t.operation_type === 'agent_run').reduce((sum, t) => sum + t.tokens_used, 0),
+      presales_report: profileUsage.filter(t => t.operation_type === 'presales_report').reduce((sum, t) => sum + t.tokens_used, 0),
+      slides_generation: profileUsage.filter(t => t.operation_type === 'slides_generation').reduce((sum, t) => sum + t.tokens_used, 0),
+      total: profileUsage.reduce((sum, t) => sum + t.tokens_used, 0)
+    };
+  }
+}
