@@ -324,7 +324,7 @@ export async function saveCalendarEvent(data: Omit<CalendarEvent, 'id' | 'create
       )
       VALUES (
         ${data.profile_id}, ${data.event_id}, ${data.title}, ${data.description || null},
-        ${data.start_time}, ${data.end_time}, ${JSON.stringify(data.attendees || [])}, ${data.source}
+        ${data.start_time.toISOString()}, ${data.end_time.toISOString()}, ${JSON.stringify(data.attendees || [])}, ${data.source}
       )
       ON CONFLICT (profile_id, event_id) 
       DO UPDATE SET
