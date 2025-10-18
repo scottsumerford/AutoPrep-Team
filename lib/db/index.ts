@@ -144,7 +144,7 @@ export async function createProfile(data: Partial<Profile>): Promise<Profile> {
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       name: error instanceof Error ? error.name : 'Unknown',
-      code: (error as any).code,
+      code: (error as Error & { code?: string }).code,
       stack: error instanceof Error ? error.stack : undefined
     });
     console.log('Falling back to mock data');
@@ -191,7 +191,7 @@ export async function updateProfile(id: number, data: Partial<Profile>): Promise
   
   try {
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: (string | number | Date | null | undefined)[] = [];
     let paramIndex = 1;
 
     if (data.name !== undefined) {
@@ -473,7 +473,7 @@ export async function initializeDatabase(): Promise<void> {
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       name: error instanceof Error ? error.name : 'Unknown',
-      code: (error as any).code,
+      code: (error as Error & { code?: string }).code,
       stack: error instanceof Error ? error.stack : undefined
     });
     throw error;
@@ -514,7 +514,7 @@ export async function getTotalTokensByType(profileId: number): Promise<{
       total: 0
     };
     
-    rows.forEach((row: any) => {
+    rows.forEach((row: { operation_type: string; total: string }) => {
       stats[row.operation_type as keyof typeof stats] = parseInt(row.total);
       stats.total += parseInt(row.total);
     });
