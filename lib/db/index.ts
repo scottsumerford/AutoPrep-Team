@@ -1,11 +1,12 @@
-import { createPool } from '@vercel/postgres';
+import { sql } from '@vercel/postgres';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Create a connection pool using the autoprep_POSTGRES_URL if POSTGRES_URL is not available
-const connectionString = process.env.POSTGRES_URL || process.env.autoprep_POSTGRES_URL;
-const db = createPool({ connectionString });
-const sql = db.sql;
+// Configure the connection string for @vercel/postgres
+// It will use POSTGRES_URL or autoprep_POSTGRES_URL automatically
+if (!process.env.POSTGRES_URL && process.env.autoprep_POSTGRES_URL) {
+  process.env.POSTGRES_URL = process.env.autoprep_POSTGRES_URL;
+}
 
 export interface Profile {
   id: number;
