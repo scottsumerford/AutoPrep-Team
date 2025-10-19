@@ -5,16 +5,16 @@ import { sql } from '@vercel/postgres';
 const connectionString = process.env.POSTGRES_URL;
 if (connectionString) {
   const maskedUrl = connectionString.replace(/:([^@]+)@/, ':****@');
-  console.log('✅ Database connection string configured:', maskedUrl);
+  console.log('Database connection string:', maskedUrl);
 } else {
-  console.warn('⚠️ No POSTGRES_URL found - using in-memory storage');
+  console.error('No POSTGRES_URL found!');
 }
 
 export interface Profile {
   id: number;
   name: string;
   email: string;
-  url_slug: string;
+  url_slug: string;  // Added: URL-friendly version of name (e.g., "john-doe")
   title?: string;
   google_access_token?: string;
   google_refresh_token?: string;
@@ -63,6 +63,7 @@ export interface FileUpload {
 
 const isDatabaseConfigured = () => {
   const hasUrl = !!(process.env.POSTGRES_URL || process.env.autoprep_POSTGRES_URL);
+  console.log('Database configured:', hasUrl);
   return hasUrl;
 };
 
@@ -87,24 +88,23 @@ function generateUrlSlug(name: string): string {
 // Database helper functions
 export async function getAllProfiles(): Promise<Profile[]> {
   if (!isDatabaseConfigured()) {
-    console.log('📦 Database not configured, using in-memory storage');
-    console.log(`📊 Current profiles in memory: ${mockProfiles.length}`);
+    console.log('Database not configured, using mock data');
     return mockProfiles;
   }
   
   try {
-    console.log('🔍 Fetching all profiles from database...');
+    console.log('Fetching all profiles from database...');
     const { rows } = await sql<Profile>`SELECT * FROM profiles ORDER BY created_at DESC`;
-    console.log(`✅ Successfully fetched ${rows.length} profiles from database`);
+    console.log(`Successfully fetched ${rows.length} profiles from database`);
     return rows;
   } catch (error) {
-    console.error('❌ Database error fetching profiles:', error);
+    console.error('Database error fetching profiles:', error);
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       name: error instanceof Error ? error.name : 'Unknown',
       stack: error instanceof Error ? error.stack : undefined
     });
-    console.log('📦 Falling back to in-memory storage');
+    console.log('Falling back to mock data');
     return mockProfiles;
   }
 }
@@ -113,118 +113,79 @@ export async function createProfile(data: Partial<Profile>): Promise<Profile> {
   // Generate URL slug from name
   const urlSlug = data.name ? generateUrlSlug(data.name) : '';
   
-  console.log('📝 Creating new profile:', {
-    name: data.name,
-    email: data.email,
+  const newProfile: Profile = {
+    id: nextProfileId++,
+    name: data.name || '',
+    email: data.email || '',
     url_slug: urlSlug,
-    operation_mode: data.operation_mode || 'auto-sync'
-  });
+    title: data.title,
+    operation_mode: data.operation_mode || 'auto-sync',
+    created_at: new Date(),
+    updated_at: new Date()
+  };
   
   if (!isDatabaseConfigured()) {
-    console.log('📦 Database not configured, saving to in-memory storage');
-    const newProfile: Profile = {
-      id: nextProfileId++,
-      name: data.name || '',
-      email: data.email || '',
-      url_slug: urlSlug,
-      title: data.title,
-      operation_mode: data.operation_mode || 'auto-sync',
-      created_at: new Date(),
-      updated_at: new Date()
-    };
+    console.log('Database not configured, saving to mock data');
     mockProfiles.push(newProfile);
-    console.log(`✅ Profile created in memory with ID: ${newProfile.id}`);
-    console.log(`📊 Total profiles in memory: ${mockProfiles.length}`);
     return newProfile;
   }
   
   try {
-    console.log('💾 Inserting profile into database...');
+    console.log('Creating profile in database:', { name: data.name, email: data.email, url_slug: urlSlug });
     const { rows } = await sql<Profile>`
       INSERT INTO profiles (name, email, url_slug, title, operation_mode)
       VALUES (${data.name}, ${data.email}, ${urlSlug}, ${data.title || ''}, ${data.operation_mode || 'auto-sync'})
       RETURNING *
     `;
-    console.log('✅ Profile created successfully in database:', {
-      id: rows[0].id,
-      name: rows[0].name,
-      email: rows[0].email,
-      url_slug: rows[0].url_slug
-    });
+    console.log('Profile created successfully in database:', rows[0]);
     return rows[0];
   } catch (error) {
-    console.error('❌ Database error creating profile:', error);
+    console.error('Database error creating profile:', error);
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       name: error instanceof Error ? error.name : 'Unknown',
       code: (error as Error & { code?: string }).code,
       stack: error instanceof Error ? error.stack : undefined
     });
-    console.log('📦 Falling back to in-memory storage');
-    const newProfile: Profile = {
-      id: nextProfileId++,
-      name: data.name || '',
-      email: data.email || '',
-      url_slug: urlSlug,
-      title: data.title,
-      operation_mode: data.operation_mode || 'auto-sync',
-      created_at: new Date(),
-      updated_at: new Date()
-    };
+    console.log('Falling back to mock data');
     mockProfiles.push(newProfile);
-    console.log(`✅ Profile created in memory with ID: ${newProfile.id}`);
     return newProfile;
   }
 }
 
 export async function getProfileById(id: number): Promise<Profile | null> {
   if (!isDatabaseConfigured()) {
-    console.log(`🔍 Looking up profile ID ${id} in memory`);
-    const profile = mockProfiles.find(p => p.id === id) || null;
-    console.log(profile ? `✅ Found profile: ${profile.name}` : `❌ Profile not found`);
-    return profile;
+    return mockProfiles.find(p => p.id === id) || null;
   }
   
   try {
-    console.log(`🔍 Fetching profile ID ${id} from database...`);
     const { rows } = await sql<Profile>`SELECT * FROM profiles WHERE id = ${id}`;
-    console.log(rows[0] ? `✅ Found profile: ${rows[0].name}` : `❌ Profile not found`);
     return rows[0] || null;
   } catch (error) {
-    console.error('❌ Database error, falling back to in-memory storage:', error);
+    console.error('Database error, falling back to mock data:', error);
     return mockProfiles.find(p => p.id === id) || null;
   }
 }
 
 export async function getProfileBySlug(slug: string): Promise<Profile | null> {
   if (!isDatabaseConfigured()) {
-    console.log(`🔍 Looking up profile slug "${slug}" in memory`);
     return mockProfiles.find(p => p.url_slug === slug) || null;
   }
   
   try {
-    console.log(`🔍 Fetching profile slug "${slug}" from database...`);
     const { rows } = await sql<Profile>`SELECT * FROM profiles WHERE url_slug = ${slug}`;
-    console.log(rows[0] ? `✅ Found profile: ${rows[0].name}` : `❌ Profile not found`);
     return rows[0] || null;
   } catch (error) {
-    console.error('❌ Database error, falling back to in-memory storage:', error);
+    console.error('Database error, falling back to mock data:', error);
     return mockProfiles.find(p => p.url_slug === slug) || null;
   }
 }
 
 export async function updateProfile(id: number, data: Partial<Profile>): Promise<Profile | null> {
-  console.log(`📝 Updating profile ID ${id}:`, Object.keys(data));
-  
   if (!isDatabaseConfigured()) {
-    console.log('📦 Database not configured, updating in-memory storage');
     const index = mockProfiles.findIndex(p => p.id === id);
-    if (index === -1) {
-      console.log(`❌ Profile ID ${id} not found in memory`);
-      return null;
-    }
+    if (index === -1) return null;
     mockProfiles[index] = { ...mockProfiles[index], ...data, updated_at: new Date() };
-    console.log(`✅ Profile updated in memory: ${mockProfiles[index].name}`);
     return mockProfiles[index];
   }
   
@@ -248,47 +209,38 @@ export async function updateProfile(id: number, data: Partial<Profile>): Promise
     if (data.google_access_token !== undefined) {
       updates.push(`google_access_token = $${paramIndex++}`);
       values.push(data.google_access_token);
-      console.log('🔑 Updating Google access token');
     }
     if (data.google_refresh_token !== undefined) {
       updates.push(`google_refresh_token = $${paramIndex++}`);
       values.push(data.google_refresh_token);
-      console.log('🔑 Updating Google refresh token');
     }
     if (data.outlook_access_token !== undefined) {
       updates.push(`outlook_access_token = $${paramIndex++}`);
       values.push(data.outlook_access_token);
-      console.log('🔑 Updating Outlook access token');
     }
     if (data.outlook_refresh_token !== undefined) {
       updates.push(`outlook_refresh_token = $${paramIndex++}`);
       values.push(data.outlook_refresh_token);
-      console.log('🔑 Updating Outlook refresh token');
     }
     if (data.operation_mode !== undefined) {
       updates.push(`operation_mode = $${paramIndex++}`);
       values.push(data.operation_mode);
-      console.log(`⚙️ Updating operation mode to: ${data.operation_mode}`);
     }
     if (data.manual_email !== undefined) {
       updates.push(`manual_email = $${paramIndex++}`);
       values.push(data.manual_email);
-      console.log(`📧 Updating manual email to: ${data.manual_email}`);
     }
     if (data.keyword_filter !== undefined) {
       updates.push(`keyword_filter = $${paramIndex++}`);
       values.push(data.keyword_filter);
-      console.log(`🔍 Updating keyword filter to: ${data.keyword_filter}`);
     }
     if (data.slide_template_url !== undefined) {
       updates.push(`slide_template_url = $${paramIndex++}`);
       values.push(data.slide_template_url);
-      console.log(`📊 Updating slide template URL`);
     }
     if (data.company_info_url !== undefined) {
       updates.push(`company_info_url = $${paramIndex++}`);
       values.push(data.company_info_url);
-      console.log(`🏢 Updating company info URL`);
     }
 
     updates.push(`updated_at = $${paramIndex++}`);
@@ -303,44 +255,30 @@ export async function updateProfile(id: number, data: Partial<Profile>): Promise
       RETURNING *
     `;
 
-    console.log('💾 Executing database update...');
     const { rows } = await sql.query(query, values);
-    console.log(`✅ Profile updated successfully in database: ${rows[0]?.name}`);
     return rows[0] || null;
   } catch (error) {
-    console.error('❌ Database error updating profile:', error);
-    console.log('📦 Falling back to in-memory storage');
+    console.error('Database error, falling back to mock data:', error);
     const index = mockProfiles.findIndex(p => p.id === id);
     if (index === -1) return null;
     mockProfiles[index] = { ...mockProfiles[index], ...data, updated_at: new Date() };
-    console.log(`✅ Profile updated in memory: ${mockProfiles[index].name}`);
     return mockProfiles[index];
   }
 }
 
 export async function deleteProfile(id: number): Promise<boolean> {
-  console.log(`🗑️ Deleting profile ID ${id}`);
-  
   if (!isDatabaseConfigured()) {
-    console.log('📦 Database not configured, deleting from in-memory storage');
     const index = mockProfiles.findIndex(p => p.id === id);
-    if (index === -1) {
-      console.log(`❌ Profile ID ${id} not found in memory`);
-      return false;
-    }
+    if (index === -1) return false;
     mockProfiles.splice(index, 1);
-    console.log(`✅ Profile deleted from memory`);
     return true;
   }
   
   try {
-    console.log('💾 Deleting profile from database...');
     await sql`DELETE FROM profiles WHERE id = ${id}`;
-    console.log(`✅ Profile deleted successfully from database`);
     return true;
   } catch (error) {
-    console.error('❌ Database error deleting profile:', error);
-    console.log('📦 Falling back to in-memory storage');
+    console.error('Database error, falling back to mock data:', error);
     const index = mockProfiles.findIndex(p => p.id === id);
     if (index === -1) return false;
     mockProfiles.splice(index, 1);
@@ -351,31 +289,23 @@ export async function deleteProfile(id: number): Promise<boolean> {
 // Calendar Events
 export async function getCalendarEvents(profileId: number): Promise<CalendarEvent[]> {
   if (!isDatabaseConfigured()) {
-    console.log(`📅 Fetching calendar events for profile ${profileId} from memory`);
-    const events = mockEvents.filter(e => e.profile_id === profileId);
-    console.log(`📊 Found ${events.length} events in memory`);
-    return events;
+    return mockEvents.filter(e => e.profile_id === profileId);
   }
   
   try {
-    console.log(`📅 Fetching calendar events for profile ${profileId} from database...`);
     const { rows } = await sql<CalendarEvent>`
       SELECT * FROM calendar_events 
       WHERE profile_id = ${profileId}
       ORDER BY start_time ASC
     `;
-    console.log(`✅ Found ${rows.length} events in database`);
     return rows;
   } catch (error) {
-    console.error('❌ Database error fetching calendar events:', error);
-    console.log('📦 Falling back to in-memory storage');
+    console.error('Database error, falling back to mock data:', error);
     return mockEvents.filter(e => e.profile_id === profileId);
   }
 }
 
 export async function saveCalendarEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>): Promise<CalendarEvent> {
-  console.log(`📅 Saving calendar event: ${data.title}`);
-  
   const newEvent: CalendarEvent = {
     id: nextEventId++,
     ...data,
@@ -383,14 +313,11 @@ export async function saveCalendarEvent(data: Omit<CalendarEvent, 'id' | 'create
   };
   
   if (!isDatabaseConfigured()) {
-    console.log('📦 Database not configured, saving to in-memory storage');
     mockEvents.push(newEvent);
-    console.log(`✅ Event saved in memory with ID: ${newEvent.id}`);
     return newEvent;
   }
   
   try {
-    console.log('💾 Inserting calendar event into database...');
     const { rows } = await sql<CalendarEvent>`
       INSERT INTO calendar_events (
         profile_id, event_id, title, description, start_time, end_time, attendees, source
@@ -408,21 +335,16 @@ export async function saveCalendarEvent(data: Omit<CalendarEvent, 'id' | 'create
         attendees = EXCLUDED.attendees
       RETURNING *
     `;
-    console.log(`✅ Event saved successfully in database with ID: ${rows[0].id}`);
     return rows[0];
   } catch (error) {
-    console.error('❌ Database error saving calendar event:', error);
-    console.log('📦 Falling back to in-memory storage');
+    console.error('Database error, falling back to mock data:', error);
     mockEvents.push(newEvent);
-    console.log(`✅ Event saved in memory with ID: ${newEvent.id}`);
     return newEvent;
   }
 }
 
 // Token Usage
 export async function logTokenUsage(data: Omit<TokenUsage, 'id' | 'created_at'>): Promise<TokenUsage> {
-  console.log(`📊 Logging token usage: ${data.operation_type} - ${data.tokens_used} tokens`);
-  
   const newUsage: TokenUsage = {
     id: nextTokenId++,
     ...data,
@@ -430,14 +352,11 @@ export async function logTokenUsage(data: Omit<TokenUsage, 'id' | 'created_at'>)
   };
   
   if (!isDatabaseConfigured()) {
-    console.log('📦 Database not configured, saving to in-memory storage');
     mockTokenUsage.push(newUsage);
-    console.log(`✅ Token usage logged in memory`);
     return newUsage;
   }
   
   try {
-    console.log('💾 Inserting token usage into database...');
     const { rows } = await sql<TokenUsage>`
       INSERT INTO token_usage (
         profile_id, operation_type, tokens_used, lindy_agent_id, event_id
@@ -448,11 +367,9 @@ export async function logTokenUsage(data: Omit<TokenUsage, 'id' | 'created_at'>)
       )
       RETURNING *
     `;
-    console.log(`✅ Token usage logged successfully in database`);
     return rows[0];
   } catch (error) {
-    console.error('❌ Database error logging token usage:', error);
-    console.log('📦 Falling back to in-memory storage');
+    console.error('Database error, falling back to mock data:', error);
     mockTokenUsage.push(newUsage);
     return newUsage;
   }
@@ -460,22 +377,18 @@ export async function logTokenUsage(data: Omit<TokenUsage, 'id' | 'created_at'>)
 
 export async function getTokenUsage(profileId: number): Promise<TokenUsage[]> {
   if (!isDatabaseConfigured()) {
-    console.log(`📊 Fetching token usage for profile ${profileId} from memory`);
     return mockTokenUsage.filter(t => t.profile_id === profileId);
   }
   
   try {
-    console.log(`📊 Fetching token usage for profile ${profileId} from database...`);
     const { rows } = await sql<TokenUsage>`
       SELECT * FROM token_usage 
       WHERE profile_id = ${profileId}
       ORDER BY created_at DESC
     `;
-    console.log(`✅ Found ${rows.length} token usage records`);
     return rows;
   } catch (error) {
-    console.error('❌ Database error fetching token usage:', error);
-    console.log('📦 Falling back to in-memory storage');
+    console.error('Database error, falling back to mock data:', error);
     return mockTokenUsage.filter(t => t.profile_id === profileId);
   }
 }
@@ -483,12 +396,12 @@ export async function getTokenUsage(profileId: number): Promise<TokenUsage[]> {
 // Database initialization
 export async function initializeDatabase(): Promise<void> {
   if (!isDatabaseConfigured()) {
-    console.log('⚠️ Database not configured, skipping initialization');
+    console.log('Database not configured, skipping initialization');
     return;
   }
   
   try {
-    console.log('🔧 Initializing database tables...');
+    console.log('Initializing database tables...');
     
     // Create profiles table with url_slug
     await sql`
@@ -511,7 +424,6 @@ export async function initializeDatabase(): Promise<void> {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
-    console.log('✅ Profiles table ready');
     
     // Create calendar_events table
     await sql`
@@ -529,7 +441,6 @@ export async function initializeDatabase(): Promise<void> {
         UNIQUE(profile_id, event_id)
       )
     `;
-    console.log('✅ Calendar events table ready');
     
     // Create token_usage table
     await sql`
@@ -543,7 +454,6 @@ export async function initializeDatabase(): Promise<void> {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
-    console.log('✅ Token usage table ready');
     
     // Create file_uploads table
     await sql`
@@ -556,11 +466,10 @@ export async function initializeDatabase(): Promise<void> {
         uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
-    console.log('✅ File uploads table ready');
     
-    console.log('✅ Database tables initialized successfully');
+    console.log('Database tables initialized successfully');
   } catch (error) {
-    console.error('❌ Error initializing database:', error);
+    console.error('Error initializing database:', error);
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       name: error instanceof Error ? error.name : 'Unknown',
@@ -579,7 +488,6 @@ export async function getTotalTokensByType(profileId: number): Promise<{
   total: number;
 }> {
   if (!isDatabaseConfigured()) {
-    console.log(`📊 Calculating token totals for profile ${profileId} from memory`);
     const profileUsage = mockTokenUsage.filter(t => t.profile_id === profileId);
     return {
       agent_run: profileUsage.filter(t => t.operation_type === 'agent_run').reduce((sum, t) => sum + t.tokens_used, 0),
@@ -590,7 +498,6 @@ export async function getTotalTokensByType(profileId: number): Promise<{
   }
   
   try {
-    console.log(`📊 Calculating token totals for profile ${profileId} from database...`);
     const { rows } = await sql`
       SELECT 
         operation_type,
@@ -612,11 +519,9 @@ export async function getTotalTokensByType(profileId: number): Promise<{
       stats.total += parseInt(row.total);
     });
     
-    console.log(`✅ Token totals calculated: ${stats.total} total tokens`);
     return stats;
   } catch (error) {
-    console.error('❌ Database error calculating token totals:', error);
-    console.log('📦 Falling back to in-memory storage');
+    console.error('Database error, falling back to mock data:', error);
     const profileUsage = mockTokenUsage.filter(t => t.profile_id === profileId);
     return {
       agent_run: profileUsage.filter(t => t.operation_type === 'agent_run').reduce((sum, t) => sum + t.tokens_used, 0),
