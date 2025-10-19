@@ -1,8 +1,19 @@
 import "./config";
-import { sql } from '@vercel/postgres';
+
+// Use require to avoid TypeScript build issues with postgres library
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const postgres = require('postgres');
+
+// Initialize postgres connection
+const connectionString = process.env.POSTGRES_URL;
+const sql = connectionString ? postgres(connectionString, {
+  max: 10,
+  idle_timeout: 20,
+  connect_timeout: 10,
+}) : null;
 
 // Check if database is configured
-const isDatabaseConfigured = () => !!process.env.POSTGRES_URL;
+const isDatabaseConfigured = () => !!connectionString && sql !== null;
 
 // Log the connection string being used (without exposing the password)
 if (process.env.POSTGRES_URL) {
@@ -92,9 +103,9 @@ export async function getAllProfiles(): Promise<Profile[]> {
   
   try {
     console.log('🔍 Fetching all profiles from database...');
-    const result = await sql<Profile>`SELECT * FROM profiles ORDER BY created_at DESC`;
-    console.log(`✅ Successfully fetched ${result.rows.length} profiles from database`);
-    return result.rows;
+    const rows = await sql<Profile>`SELECT * FROM profiles ORDER BY created_at DESC`;
+    console.log(`✅ Successfully fetched ${rows.length} profiles from database`);
+    return rows;
   } catch (error) {
     console.error('❌ Database error fetching profiles:', error);
     console.error('Error details:', {
@@ -182,9 +193,9 @@ export async function getProfileById(id: number): Promise<Profile | null> {
   
   try {
     console.log(`🔍 Fetching profile ID ${id} from database...`);
-    const result = await sql<Profile>`SELECT * FROM profiles WHERE id = ${id}`;
-    console.log(result.rows[0] ? `✅ Found profile: ${result.rows[0].name}` : `❌ Profile not found`);
-    return result.rows[0] || null;
+    const rows = await sql<Profile>`SELECT * FROM profiles WHERE id = ${id}`;
+    console.log(rows[0] ? `✅ Found profile: ${rows[0].name}` : `❌ Profile not found`);
+    return rows[0] || null;
   } catch (error) {
     console.error('❌ Database error, falling back to in-memory storage:', error);
     return mockProfiles.find(p => p.id === id) || null;
@@ -199,9 +210,9 @@ export async function getProfileBySlug(slug: string): Promise<Profile | null> {
   
   try {
     console.log(`🔍 Fetching profile slug "${slug}" from database...`);
-    const result = await sql<Profile>`SELECT * FROM profiles WHERE url_slug = ${slug}`;
-    console.log(result.rows[0] ? `✅ Found profile: ${result.rows[0].name}` : `❌ Profile not found`);
-    return result.rows[0] || null;
+    const rows = await sql<Profile>`SELECT * FROM profiles WHERE url_slug = ${slug}`;
+    console.log(rows[0] ? `✅ Found profile: ${rows[0].name}` : `❌ Profile not found`);
+    return rows[0] || null;
   } catch (error) {
     console.error('❌ Database error, falling back to in-memory storage:', error);
     return mockProfiles.find(p => p.url_slug === slug) || null;
@@ -345,13 +356,13 @@ export async function getCalendarEvents(profileId: number): Promise<CalendarEven
   
   try {
     console.log(`📅 Fetching calendar events for profile ${profileId} from database...`);
-    const result = await sql<CalendarEvent>`
+    const rows = await sql<CalendarEvent>`
       SELECT * FROM calendar_events 
       WHERE profile_id = ${profileId}
       ORDER BY start_time ASC
     `;
-    console.log(`✅ Found ${result.rows.length} events in database`);
-    return result.rows;
+    console.log(`✅ Found ${rows.length} events in database`);
+    return rows;
   } catch (error) {
     console.error('❌ Database error fetching calendar events:', error);
     console.log('📦 Falling back to in-memory storage');
@@ -379,7 +390,7 @@ export async function saveCalendarEvent(data: Omit<CalendarEvent, 'id' | 'create
   
   try {
     console.log('💾 Inserting calendar event into database...');
-    const result = await sql<CalendarEvent>`
+    const rows = await sql<CalendarEvent>`
       INSERT INTO calendar_events (
         profile_id, event_id, title, description, start_time, end_time, attendees, source
       )
@@ -396,8 +407,8 @@ export async function saveCalendarEvent(data: Omit<CalendarEvent, 'id' | 'create
         attendees = EXCLUDED.attendees
       RETURNING *
     `;
-    console.log(`✅ Event saved successfully in database with ID: ${result.rows[0].id}`);
-    return result.rows[0];
+    console.log(`✅ Event saved successfully in database with ID: ${rows[0].id}`);
+    return rows[0];
   } catch (error) {
     console.error('❌ Database error saving calendar event:', error);
     console.error('Error details:', {
