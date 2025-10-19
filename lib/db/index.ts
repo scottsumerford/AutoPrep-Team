@@ -635,3 +635,4 @@ export async function getTotalTokensByType(profileId: number): Promise<{
     };
   }
 }
+// Database connection with updated password
