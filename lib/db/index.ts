@@ -361,6 +361,8 @@ export async function getCalendarEvents(profileId: number): Promise<CalendarEven
 
 export async function saveCalendarEvent(data: Omit<CalendarEvent, 'id' | 'created_at'>): Promise<CalendarEvent> {
   console.log(`📅 Saving calendar event: ${data.title}`);
+  console.log(`🔍 Database configured: ${isDatabaseConfigured()}`);
+  console.log(`🔍 POSTGRES_URL exists: ${!!process.env.POSTGRES_URL}`);
   
   const newEvent: CalendarEvent = {
     id: nextEventId++,
