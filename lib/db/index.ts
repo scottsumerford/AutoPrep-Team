@@ -407,10 +407,20 @@ export async function saveCalendarEvent(data: Omit<CalendarEvent, 'id' | 'create
     return rows[0];
   } catch (error) {
     console.error('❌ Database error saving calendar event:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      eventData: {
+        profile_id: data.profile_id,
+        event_id: data.event_id,
+        title: data.title,
+        source: data.source
+      }
+    });
     console.log('📦 Falling back to in-memory storage');
     mockEvents.push(newEvent);
     console.log(`✅ Event saved in memory with ID: ${newEvent.id}`);
-    return newEvent;
+    throw error; // Re-throw the error so we can see it in the API response
   }
 }
 

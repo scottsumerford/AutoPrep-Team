@@ -26,17 +26,23 @@ export async function POST(request: NextRequest) {
         
         for (const event of googleEvents) {
           console.log(`💾 Saving Google event: ${event.summary || 'No Title'} (ID: ${event.id})`);
-          await saveCalendarEvent({
-            profile_id: parseInt(profile_id),
-            event_id: event.id,
-            title: event.summary || 'No Title',
-            description: event.description,
-            start_time: new Date(event.start.dateTime || event.start.date),
-            end_time: new Date(event.end.dateTime || event.end.date),
-            attendees: event.attendees?.map((a: { email: string }) => a.email) || [],
-            source: 'google'
-          });
-          syncedEvents++;
+          try {
+            await saveCalendarEvent({
+              profile_id: parseInt(profile_id),
+              event_id: event.id,
+              title: event.summary || 'No Title',
+              description: event.description,
+              start_time: new Date(event.start.dateTime || event.start.date),
+              end_time: new Date(event.end.dateTime || event.end.date),
+              attendees: event.attendees?.map((a: { email: string }) => a.email) || [],
+              source: 'google'
+            });
+            syncedEvents++;
+            console.log(`✅ Successfully saved event: ${event.summary || 'No Title'}`);
+          } catch (saveError) {
+            console.error(`❌ Failed to save event ${event.summary || 'No Title'}:`, saveError);
+            throw new Error(`Failed to save event: ${saveError instanceof Error ? saveError.message : 'Unknown error'}`);
+          }
         }
       } catch (error) {
         console.error('Error syncing Google Calendar:', error);
