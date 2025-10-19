@@ -20,7 +20,22 @@ export async function POST(request: NextRequest) {
     // Sync Google Calendar if connected
     if (profile.google_access_token) {
       try {
-        const googleEvents = await fetchGoogleCalendarEvents(profile.google_access_token);
+        let accessToken = profile.google_access_token;
+        
+        // Try to fetch events, refresh token if needed
+        let googleEvents;
+        try {
+          googleEvents = await fetchGoogleCalendarEvents(accessToken);
+        } catch (error) {
+          // If 401 error and we have a refresh token, try to refresh
+          if (error instanceof Error && error.message.includes('Request had invalid') && profile.google_refresh_token) {
+            console.log('🔄 Access token expired, refreshing...');
+            accessToken = await refreshGoogleAccessToken(profile.google_refresh_token, parseInt(profile_id));
+            googleEvents = await fetchGoogleCalendarEvents(accessToken);
+          } else {
+            throw error;
+          }
+        }
         
         console.log(`📥 Fetched ${googleEvents.length} events from Google Calendar`);
         
@@ -95,6 +110,41 @@ export async function POST(request: NextRequest) {
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
+}
+
+
+async function refreshGoogleAccessToken(refreshToken: string, profileId: number): Promise<string> {
+  console.log('🔄 Refreshing Google access token...');
+  
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID || '',
+      client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('❌ Failed to refresh token:', error);
+    throw new Error(`Failed to refresh Google token: ${error.error_description || error.error}`);
+  }
+
+  const tokens = await response.json();
+  console.log('✅ Successfully refreshed access token');
+
+  // Update profile with new access token
+  const { updateProfile } = await import('@/lib/db');
+  await updateProfile(profileId, {
+    google_access_token: tokens.access_token,
+  });
+
+  return tokens.access_token;
 }
 
 async function fetchGoogleCalendarEvents(accessToken: string) {
