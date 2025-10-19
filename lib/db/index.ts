@@ -1,8 +1,20 @@
 import "./config";
-import { sql } from '@vercel/postgres';
+
+// Use require to avoid TypeScript build issues with postgres library
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const postgres = require('postgres');
+
+// Initialize postgres connection
+const connectionString = process.env.POSTGRES_URL;
+const sql = connectionString ? postgres(connectionString, {
+  max: 10,
+  idle_timeout: 20,
+  connect_timeout: 10,
+}) : null;
+
+const isDatabaseConfigured = () => !!connectionString && sql !== null;
 
 // Log the connection string being used (without exposing the password)
-const connectionString = process.env.POSTGRES_URL;
 if (connectionString) {
   const maskedUrl = connectionString.replace(/:([^@]+)@/, ':****@');
   console.log('✅ Database connection string configured:', maskedUrl);
@@ -61,10 +73,6 @@ export interface FileUpload {
   uploaded_at: Date;
 }
 
-const isDatabaseConfigured = () => {
-  const hasUrl = !!(process.env.POSTGRES_URL || process.env.autoprep_POSTGRES_URL);
-  return hasUrl;
-};
 
 // In-memory storage for development (when database is not configured)
 const mockProfiles: Profile[] = [];
@@ -607,7 +615,8 @@ export async function getTotalTokensByType(profileId: number): Promise<{
       total: 0
     };
     
-    rows.forEach((row) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rows.forEach((row: any) => {
       stats[row.operation_type as keyof typeof stats] = parseInt(row.total);
       stats.total += parseInt(row.total);
     });
