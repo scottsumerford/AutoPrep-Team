@@ -480,8 +480,8 @@ export async function getTokenUsage(profileId: number): Promise<TokenUsage[]> {
       WHERE profile_id = ${profileId}
       ORDER BY created_at DESC
     `;
-    console.log(`✅ Found ${rows.length} token usage records`);
-    return result.rows;
+    console.log(`✅ Found ${result.length} token usage records`);
+    return result;
   } catch (error) {
     console.error('❌ Database error fetching token usage:', error);
     console.log('📦 Falling back to in-memory storage');
