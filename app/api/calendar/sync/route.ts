@@ -22,7 +22,10 @@ export async function POST(request: NextRequest) {
       try {
         const googleEvents = await fetchGoogleCalendarEvents(profile.google_access_token);
         
+        console.log(`📥 Fetched ${googleEvents.length} events from Google Calendar`);
+        
         for (const event of googleEvents) {
+          console.log(`💾 Saving Google event: ${event.summary || 'No Title'} (ID: ${event.id})`);
           await saveCalendarEvent({
             profile_id: parseInt(profile_id),
             event_id: event.id,
@@ -49,7 +52,10 @@ export async function POST(request: NextRequest) {
       try {
         const outlookEvents = await fetchOutlookCalendarEvents(profile.outlook_access_token);
         
+        console.log(`📥 Fetched ${outlookEvents.length} events from Outlook Calendar`);
+        
         for (const event of outlookEvents) {
+          console.log(`💾 Saving Outlook event: ${event.subject || 'No Title'} (ID: ${event.id})`);
           await saveCalendarEvent({
             profile_id: parseInt(profile_id),
             event_id: event.id,
