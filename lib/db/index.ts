@@ -447,7 +447,7 @@ export async function logTokenUsage(data: Omit<TokenUsage, 'id' | 'created_at'>)
   
   try {
     console.log('💾 Inserting token usage into database...');
-    const result = await sql<TokenUsage>`
+    const rows = await sql<TokenUsage>`
       INSERT INTO token_usage (
         profile_id, operation_type, tokens_used, lindy_agent_id, event_id
       )

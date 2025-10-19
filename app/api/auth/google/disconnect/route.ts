@@ -11,10 +11,10 @@ export async function POST(request: NextRequest) {
 
     console.log('Disconnecting Google Calendar for profile:', profile_id);
 
-    // Clear Google tokens from profile
+    // Clear Google tokens from profile (use undefined instead of null)
     await updateProfile(parseInt(profile_id), {
-      google_access_token: null,
-      google_refresh_token: null
+      google_access_token: undefined,
+      google_refresh_token: undefined
     });
 
     console.log('✅ Successfully disconnected Google Calendar');
