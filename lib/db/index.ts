@@ -1,22 +1,12 @@
 import "./config";
+import { sql } from '@vercel/postgres';
 
-// Use require to avoid TypeScript build issues with postgres library
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const postgres = require('postgres');
-
-// Initialize postgres connection
-const connectionString = process.env.POSTGRES_URL;
-const sql = connectionString ? postgres(connectionString, {
-  max: 10,
-  idle_timeout: 20,
-  connect_timeout: 10,
-}) : null;
-
-const isDatabaseConfigured = () => !!connectionString && sql !== null;
+// Check if database is configured
+const isDatabaseConfigured = () => !!process.env.POSTGRES_URL;
 
 // Log the connection string being used (without exposing the password)
-if (connectionString) {
-  const maskedUrl = connectionString.replace(/:([^@]+)@/, ':****@');
+if (process.env.POSTGRES_URL) {
+  const maskedUrl = process.env.POSTGRES_URL.replace(/:([^@]+)@/, ':****@');
   console.log('✅ Database connection string configured:', maskedUrl);
 } else {
   console.warn('⚠️ No POSTGRES_URL found - using in-memory storage');
@@ -299,7 +289,8 @@ export async function updateProfile(id: number, data: Partial<Profile>): Promise
     `;
 
     console.log('💾 Executing database update...');
-    const rows = await sql.unsafe(query, values);
+    const result = await sql.query(query, values);
+    const rows = result.rows;
     console.log(`✅ Profile updated successfully in database: ${rows[0]?.name}`);
     return rows[0] || null;
   } catch (error) {
