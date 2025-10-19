@@ -226,3 +226,20 @@ Connection port: 6543 (pooled ✅)
 ---
 
 **Note:** This solution was developed after extensive testing and troubleshooting. The combination of `require()` with the `postgres` library is the only approach that successfully works with both Supabase pooled connections and Vercel's TypeScript build system.
+
+---
+
+## Production Connection String
+
+**Supabase Pooled Connection (Port 6543):**
+```
+postgresql://postgres.kmswrzzlirdfnzzbnrpo:imAVAKBD6QwffO2z@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+```
+
+**Environment Variable:**
+- Name: `POSTGRES_URL`
+- Value: The connection string above
+- Used in: Vercel Production, Preview, and Development environments
+
+**Last Updated:** October 19, 2025
+# POSTGRES_URL environment variable has been configured in Vercel
