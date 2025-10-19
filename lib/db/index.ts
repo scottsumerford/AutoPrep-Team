@@ -32,8 +32,8 @@ export interface Profile {
   google_refresh_token?: string;
   outlook_access_token?: string;
   outlook_refresh_token?: string;
-  operation_mode: 'auto-sync' | 'manual';
-  manual_email?: string;
+  
+  
   keyword_filter?: string;
   slide_template_url?: string;
   company_info_url?: string;
@@ -125,7 +125,6 @@ export async function createProfile(data: Partial<Profile>): Promise<Profile> {
     name: data.name,
     email: data.email,
     url_slug: urlSlug,
-    operation_mode: data.operation_mode || 'auto-sync'
   });
   
   if (!isDatabaseConfigured()) {
@@ -136,7 +135,6 @@ export async function createProfile(data: Partial<Profile>): Promise<Profile> {
       email: data.email || '',
       url_slug: urlSlug,
       title: data.title,
-      operation_mode: data.operation_mode || 'auto-sync',
       created_at: new Date(),
       updated_at: new Date()
     };
@@ -149,8 +147,8 @@ export async function createProfile(data: Partial<Profile>): Promise<Profile> {
   try {
     console.log('💾 Inserting profile into database...');
     const rows = await sql<Profile>`
-      INSERT INTO profiles (name, email, url_slug, title, operation_mode)
-      VALUES (${data.name}, ${data.email}, ${urlSlug}, ${data.title || ''}, ${data.operation_mode || 'auto-sync'})
+      INSERT INTO profiles (name, email, url_slug, title)
+      VALUES (${data.name}, ${data.email}, ${urlSlug}, ${data.title || ''})
       RETURNING *
     `;
     console.log('✅ Profile created successfully in database:', {
@@ -175,7 +173,6 @@ export async function createProfile(data: Partial<Profile>): Promise<Profile> {
       email: data.email || '',
       url_slug: urlSlug,
       title: data.title,
-      operation_mode: data.operation_mode || 'auto-sync',
       created_at: new Date(),
       updated_at: new Date()
     };
@@ -272,16 +269,6 @@ export async function updateProfile(id: number, data: Partial<Profile>): Promise
       updates.push(`outlook_refresh_token = $${paramIndex++}`);
       values.push(data.outlook_refresh_token);
       console.log('🔑 Updating Outlook refresh token');
-    }
-    if (data.operation_mode !== undefined) {
-      updates.push(`operation_mode = $${paramIndex++}`);
-      values.push(data.operation_mode);
-      console.log(`⚙️ Updating operation mode to: ${data.operation_mode}`);
-    }
-    if (data.manual_email !== undefined) {
-      updates.push(`manual_email = $${paramIndex++}`);
-      values.push(data.manual_email);
-      console.log(`📧 Updating manual email to: ${data.manual_email}`);
     }
     if (data.keyword_filter !== undefined) {
       updates.push(`keyword_filter = $${paramIndex++}`);
@@ -510,8 +497,6 @@ export async function initializeDatabase(): Promise<void> {
         google_refresh_token TEXT,
         outlook_access_token TEXT,
         outlook_refresh_token TEXT,
-        operation_mode VARCHAR(50) DEFAULT 'auto-sync',
-        manual_email VARCHAR(255),
         keyword_filter TEXT,
         slide_template_url TEXT,
         company_info_url TEXT,
@@ -520,8 +505,6 @@ export async function initializeDatabase(): Promise<void> {
       )
     `;
     console.log('✅ Profiles table ready');
-    
-    // Create calendar_events table
     await sql`
       CREATE TABLE IF NOT EXISTS calendar_events (
         id SERIAL PRIMARY KEY,

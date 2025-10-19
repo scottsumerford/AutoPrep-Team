@@ -13,8 +13,6 @@ CREATE TABLE IF NOT EXISTS profiles (
   google_refresh_token TEXT,
   outlook_access_token TEXT,
   outlook_refresh_token TEXT,
-  operation_mode VARCHAR(50) DEFAULT 'auto-sync', -- 'auto-sync' or 'manual'
-  manual_email VARCHAR(255),
   keyword_filter TEXT,
   slide_template_url TEXT,
   company_info_url TEXT,
@@ -72,6 +70,5 @@ COMMENT ON TABLE token_usage IS 'Track Lindy AI token consumption by operation';
 COMMENT ON TABLE file_uploads IS 'Uploaded templates and company information';
 
 COMMENT ON COLUMN profiles.url_slug IS 'URL-friendly version of name (e.g., "john-doe")';
-COMMENT ON COLUMN profiles.operation_mode IS 'auto-sync: pull from calendar, manual: enter email manually';
 COMMENT ON COLUMN calendar_events.attendees IS 'JSON array of attendee email addresses';
 COMMENT ON COLUMN token_usage.operation_type IS 'Type of operation: agent_run, presales_report, or slides_generation';
