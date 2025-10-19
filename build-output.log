@@ -7,54 +7,20 @@ https://nextjs.org/telemetry
    ▲ Next.js 15.5.3 (Turbopack)
 
    Creating an optimized production build ...
- ✓ Finished writing to disk in 20ms
+ ✓ Finished writing to disk in 19ms
  ✓ Compiled successfully in 5.8s
    Linting and checking validity of types ...
-   Collecting page data ...
-❌ No POSTGRES_URL found in environment variables
-Available POSTGRES env vars: []
-⚠️ No POSTGRES_URL found - using in-memory storage
-❌ No POSTGRES_URL found in environment variables
-Available POSTGRES env vars: []
-⚠️ No POSTGRES_URL found - using in-memory storage
-   Generating static pages (0/16) ...
-❌ No POSTGRES_URL found in environment variables
-Available POSTGRES env vars: []
-⚠️ No POSTGRES_URL found - using in-memory storage
-   Generating static pages (4/16) 
-   Generating static pages (8/16) 
-   Generating static pages (12/16) 
- ✓ Generating static pages (16/16)
-   Finalizing page optimization ...
-   Collecting build traces ...
+Failed to compile.
 
-Route (app)                          Size  First Load JS
-┌ ○ /                             26.6 kB         141 kB
-├ ○ /_not-found                       0 B         114 kB
-├ ƒ /api/auth/google                  0 B            0 B
-├ ƒ /api/auth/outlook                 0 B            0 B
-├ ƒ /api/calendar/[id]                0 B            0 B
-├ ƒ /api/calendar/sync                0 B            0 B
-├ ƒ /api/db/init                      0 B            0 B
-├ ƒ /api/debug/connection-string      0 B            0 B
-├ ƒ /api/debug/env                    0 B            0 B
-├ ƒ /api/debug/profiles               0 B            0 B
-├ ƒ /api/lindy/presales-report        0 B            0 B
-├ ƒ /api/lindy/slides                 0 B            0 B
-├ ƒ /api/profiles                     0 B            0 B
-├ ƒ /api/profiles/[id]                0 B            0 B
-├ ƒ /api/tokens/[id]                  0 B            0 B
-├ ○ /privacypolicy                    0 B         114 kB
-├ ƒ /profile/[id]                 31.5 kB         145 kB
-└ ○ /termsofservice                   0 B         114 kB
-+ First Load JS shared by all      133 kB
-  ├ chunks/5564f493499345f1.js    24.1 kB
-  ├ chunks/8082ab48faca5ea1.js    17.2 kB
-  ├ chunks/d04efc723d1783d5.js    59.2 kB
-  ├ chunks/fba3fbef13be2749.css   18.3 kB
-  └ other shared chunks (total)   14.3 kB
+./lib/db/index-update.ts:28:8
+Type error: Cannot find name 'isDatabaseConfigured'.
 
-
-○  (Static)   prerendered as static content
-ƒ  (Dynamic)  server-rendered on demand
-
+[0m [90m 26 |[39m   reportUrl[33m?[39m[33m:[39m string
+ [90m 27 |[39m )[33m:[39m [33mPromise[39m[33m<[39m[33mCalendarEvent[39m [33m|[39m [36mnull[39m[33m>[39m {
+[31m[1m>[22m[39m[90m 28 |[39m   [36mif[39m ([33m![39misDatabaseConfigured()) {
+ [90m    |[39m        [31m[1m^[22m[39m
+ [90m 29 |[39m     console[33m.[39mlog([32m`📝 Updating presales status for event ${eventId} in memory`[39m)[33m;[39m
+ [90m 30 |[39m     [36mconst[39m event [33m=[39m mockEvents[33m.[39mfind(e [33m=>[39m e[33m.[39mid [33m===[39m eventId)[33m;[39m
+ [90m 31 |[39m     [36mif[39m ([33m![39mevent) [36mreturn[39m [36mnull[39m[33m;[39m[0m
+Next.js build worker exited with code: 1 and signal: null
+error: script "build" exited with code 1

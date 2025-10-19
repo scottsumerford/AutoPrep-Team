@@ -52,12 +52,6 @@ export interface CalendarEvent {
   end_time: Date;
   attendees?: string[];
   source: 'google' | 'outlook';
-  presales_report_status?: 'pending' | 'processing' | 'completed' | 'failed';
-  presales_report_url?: string;
-  presales_report_generated_at?: Date;
-  slides_status?: 'pending' | 'processing' | 'completed' | 'failed';
-  slides_url?: string;
-  slides_generated_at?: Date;
   created_at: Date;
 }
 
@@ -639,90 +633,3 @@ export async function getTotalTokensByType(profileId: number): Promise<{
   }
 }
 // Database connection with updated password
-
-// Update event presales report status
-export async function updateEventPresalesStatus(
-  eventId: number,
-  status: 'pending' | 'processing' | 'completed' | 'failed',
-  reportUrl?: string
-): Promise<CalendarEvent | null> {
-  if (!isDatabaseConfigured()) {
-    console.log(`📝 Updating presales status for event ${eventId} in memory`);
-    const event = mockEvents.find(e => e.id === eventId);
-    if (!event) return null;
-    event.presales_report_status = status;
-    if (reportUrl) event.presales_report_url = reportUrl;
-    if (status === 'completed') event.presales_report_generated_at = new Date();
-    return event;
-  }
-  
-  try {
-    console.log(`📝 Updating presales status for event ${eventId} to ${status}`);
-    const rows = await sql<CalendarEvent>`
-      UPDATE calendar_events 
-      SET 
-        presales_report_status = ${status},
-        presales_report_url = ${reportUrl || null},
-        presales_report_generated_at = ${status === 'completed' ? new Date() : null}
-      WHERE id = ${eventId}
-      RETURNING *
-    `;
-    console.log(`✅ Presales status updated successfully`);
-    return rows[0] || null;
-  } catch (error) {
-    console.error('❌ Database error updating presales status:', error);
-    return null;
-  }
-}
-
-// Update event slides status
-export async function updateEventSlidesStatus(
-  eventId: number,
-  status: 'pending' | 'processing' | 'completed' | 'failed',
-  slidesUrl?: string
-): Promise<CalendarEvent | null> {
-  if (!isDatabaseConfigured()) {
-    console.log(`📝 Updating slides status for event ${eventId} in memory`);
-    const event = mockEvents.find(e => e.id === eventId);
-    if (!event) return null;
-    event.slides_status = status;
-    if (slidesUrl) event.slides_url = slidesUrl;
-    if (status === 'completed') event.slides_generated_at = new Date();
-    return event;
-  }
-  
-  try {
-    console.log(`📝 Updating slides status for event ${eventId} to ${status}`);
-    const rows = await sql<CalendarEvent>`
-      UPDATE calendar_events 
-      SET 
-        slides_status = ${status},
-        slides_url = ${slidesUrl || null},
-        slides_generated_at = ${status === 'completed' ? new Date() : null}
-      WHERE id = ${eventId}
-      RETURNING *
-    `;
-    console.log(`✅ Slides status updated successfully`);
-    return rows[0] || null;
-  } catch (error) {
-    console.error('❌ Database error updating slides status:', error);
-    return null;
-  }
-}
-
-// Get event by ID
-export async function getEventById(eventId: number): Promise<CalendarEvent | null> {
-  if (!isDatabaseConfigured()) {
-    console.log(`🔍 Looking up event ID ${eventId} in memory`);
-    return mockEvents.find(e => e.id === eventId) || null;
-  }
-  
-  try {
-    console.log(`🔍 Fetching event ID ${eventId} from database...`);
-    const rows = await sql<CalendarEvent>`SELECT * FROM calendar_events WHERE id = ${eventId}`;
-    return rows[0] || null;
-  } catch (error) {
-    console.error('❌ Database error fetching event:', error);
-    return mockEvents.find(e => e.id === eventId) || null;
-  }
-}

@@ -9,6 +9,7 @@ export const LINDY_AGENTS = {
 export interface LindyAgentRequest {
   agent_id: string;
   input: {
+    calendar_event_id?: number;
     event_title?: string;
     event_description?: string;
     attendee_email?: string;
@@ -26,6 +27,8 @@ export interface LindyAgentResponse {
   output?: unknown;
   tokens_used?: number;
   error?: string;
+  pdf_url?: string;
+  slides_url?: string;
 }
 
 /**
@@ -61,7 +64,9 @@ export async function callLindyAgent(
     return {
       success: true,
       output: data.output,
-      tokens_used: data.tokens_used || 0
+      tokens_used: data.tokens_used || 0,
+      pdf_url: data.pdf_url,
+      slides_url: data.slides_url
     };
   } catch (error) {
     console.error('Error calling Lindy agent:', error);
@@ -76,6 +81,7 @@ export async function callLindyAgent(
  * Generate a pre-sales report for a calendar event
  */
 export async function generatePresalesReport(params: {
+  calendarEventId: number;
   eventTitle: string;
   eventDescription?: string;
   attendeeEmail: string;
@@ -85,6 +91,7 @@ export async function generatePresalesReport(params: {
   return callLindyAgent(
     LINDY_AGENTS.PRESALES_REPORT,
     {
+      calendar_event_id: params.calendarEventId,
       event_title: params.eventTitle,
       event_description: params.eventDescription,
       attendee_email: params.attendeeEmail,
@@ -98,6 +105,7 @@ export async function generatePresalesReport(params: {
  * Generate slides for a calendar event
  */
 export async function generateSlides(params: {
+  calendarEventId: number;
   eventTitle: string;
   eventDescription?: string;
   attendeeEmail: string;
@@ -108,6 +116,7 @@ export async function generateSlides(params: {
   return callLindyAgent(
     LINDY_AGENTS.SLIDES_GENERATION,
     {
+      calendar_event_id: params.calendarEventId,
       event_title: params.eventTitle,
       event_description: params.eventDescription,
       attendee_email: params.attendeeEmail,
