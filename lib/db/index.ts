@@ -1,11 +1,26 @@
 import "./config";
-import { sql } from '@vercel/postgres';
+import postgres from 'postgres';
+
+// Initialize postgres connection
+const connectionString = process.env.POSTGRES_URL;
+const sql = connectionString ? postgres(connectionString, {
+  max: 10,
+  idle_timeout: 20,
+  connect_timeout: 10,
+}) : null;
 
 // Log the connection string being used (without exposing the password)
-const connectionString = process.env.POSTGRES_URL;
 if (connectionString) {
   const maskedUrl = connectionString.replace(/:([^@]+)@/, ':****@');
   console.log('✅ Database connection string configured:', maskedUrl);
+  
+  // Check if it's a pooled connection
+  const port = connectionString.match(/:(\d+)\//)?.[1];
+  if (port === '6543') {
+    console.log('   Connection port: 6543 (pooled ✅)');
+  } else if (port === '5432') {
+    console.log('   Connection port: 5432 (direct connection)');
+  }
 } else {
   console.warn('⚠️ No POSTGRES_URL found - using in-memory storage');
 }
@@ -94,7 +109,7 @@ export async function getAllProfiles(): Promise<Profile[]> {
   
   try {
     console.log('🔍 Fetching all profiles from database...');
-    const { rows } = await sql<Profile>`SELECT * FROM profiles ORDER BY created_at DESC`;
+    const rows = await sql<Profile>`SELECT * FROM profiles ORDER BY created_at DESC`;
     console.log(`✅ Successfully fetched ${rows.length} profiles from database`);
     return rows;
   } catch (error) {
@@ -140,7 +155,7 @@ export async function createProfile(data: Partial<Profile>): Promise<Profile> {
   
   try {
     console.log('💾 Inserting profile into database...');
-    const { rows } = await sql<Profile>`
+    const rows = await sql<Profile>`
       INSERT INTO profiles (name, email, url_slug, title, operation_mode)
       VALUES (${data.name}, ${data.email}, ${urlSlug}, ${data.title || ''}, ${data.operation_mode || 'auto-sync'})
       RETURNING *
@@ -187,7 +202,7 @@ export async function getProfileById(id: number): Promise<Profile | null> {
   
   try {
     console.log(`🔍 Fetching profile ID ${id} from database...`);
-    const { rows } = await sql<Profile>`SELECT * FROM profiles WHERE id = ${id}`;
+    const rows = await sql<Profile>`SELECT * FROM profiles WHERE id = ${id}`;
     console.log(rows[0] ? `✅ Found profile: ${rows[0].name}` : `❌ Profile not found`);
     return rows[0] || null;
   } catch (error) {
@@ -204,7 +219,7 @@ export async function getProfileBySlug(slug: string): Promise<Profile | null> {
   
   try {
     console.log(`🔍 Fetching profile slug "${slug}" from database...`);
-    const { rows } = await sql<Profile>`SELECT * FROM profiles WHERE url_slug = ${slug}`;
+    const rows = await sql<Profile>`SELECT * FROM profiles WHERE url_slug = ${slug}`;
     console.log(rows[0] ? `✅ Found profile: ${rows[0].name}` : `❌ Profile not found`);
     return rows[0] || null;
   } catch (error) {
@@ -304,7 +319,7 @@ export async function updateProfile(id: number, data: Partial<Profile>): Promise
     `;
 
     console.log('💾 Executing database update...');
-    const { rows } = await sql.query(query, values);
+    const rows = await sql.query(query, values);
     console.log(`✅ Profile updated successfully in database: ${rows[0]?.name}`);
     return rows[0] || null;
   } catch (error) {
@@ -359,7 +374,7 @@ export async function getCalendarEvents(profileId: number): Promise<CalendarEven
   
   try {
     console.log(`📅 Fetching calendar events for profile ${profileId} from database...`);
-    const { rows } = await sql<CalendarEvent>`
+    const rows = await sql<CalendarEvent>`
       SELECT * FROM calendar_events 
       WHERE profile_id = ${profileId}
       ORDER BY start_time ASC
@@ -391,7 +406,7 @@ export async function saveCalendarEvent(data: Omit<CalendarEvent, 'id' | 'create
   
   try {
     console.log('💾 Inserting calendar event into database...');
-    const { rows } = await sql<CalendarEvent>`
+    const rows = await sql<CalendarEvent>`
       INSERT INTO calendar_events (
         profile_id, event_id, title, description, start_time, end_time, attendees, source
       )
@@ -438,7 +453,7 @@ export async function logTokenUsage(data: Omit<TokenUsage, 'id' | 'created_at'>)
   
   try {
     console.log('💾 Inserting token usage into database...');
-    const { rows } = await sql<TokenUsage>`
+    const rows = await sql<TokenUsage>`
       INSERT INTO token_usage (
         profile_id, operation_type, tokens_used, lindy_agent_id, event_id
       )
@@ -466,7 +481,7 @@ export async function getTokenUsage(profileId: number): Promise<TokenUsage[]> {
   
   try {
     console.log(`📊 Fetching token usage for profile ${profileId} from database...`);
-    const { rows } = await sql<TokenUsage>`
+    const rows = await sql<TokenUsage>`
       SELECT * FROM token_usage 
       WHERE profile_id = ${profileId}
       ORDER BY created_at DESC
@@ -591,7 +606,7 @@ export async function getTotalTokensByType(profileId: number): Promise<{
   
   try {
     console.log(`📊 Calculating token totals for profile ${profileId} from database...`);
-    const { rows } = await sql`
+    const rows = await sql`
       SELECT 
         operation_type,
         SUM(tokens_used) as total
