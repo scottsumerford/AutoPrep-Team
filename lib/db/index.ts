@@ -3,11 +3,16 @@ import postgres from 'postgres';
 
 // Initialize postgres connection
 const connectionString = process.env.POSTGRES_URL;
-const sql = connectionString ? postgres(connectionString, {
+
+// Create sql instance - use dummy connection if not configured
+const sql = postgres(connectionString || 'postgresql://localhost:5432/dummy', {
   max: 10,
   idle_timeout: 20,
   connect_timeout: 10,
-}) : null;
+}) as ReturnType<typeof postgres>;
+
+// Helper to check if database is actually configured
+const isDatabaseConfigured = () => !!connectionString;
 
 // Log the connection string being used (without exposing the password)
 if (connectionString) {
@@ -76,10 +81,6 @@ export interface FileUpload {
   uploaded_at: Date;
 }
 
-const isDatabaseConfigured = () => {
-  const hasUrl = !!(process.env.POSTGRES_URL || process.env.autoprep_POSTGRES_URL);
-  return hasUrl;
-};
 
 // In-memory storage for development (when database is not configured)
 const mockProfiles: Profile[] = [];
