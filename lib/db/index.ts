@@ -92,9 +92,9 @@ export async function getAllProfiles(): Promise<Profile[]> {
   
   try {
     console.log('🔍 Fetching all profiles from database...');
-    const rows = await sql<Profile>`SELECT * FROM profiles ORDER BY created_at DESC`;
-    console.log(`✅ Successfully fetched ${rows.length} profiles from database`);
-    return rows;
+    const result = await sql<Profile>`SELECT * FROM profiles ORDER BY created_at DESC`;
+    console.log(`✅ Successfully fetched ${result.rows.length} profiles from database`);
+    return result.rows;
   } catch (error) {
     console.error('❌ Database error fetching profiles:', error);
     console.error('Error details:', {
@@ -182,9 +182,9 @@ export async function getProfileById(id: number): Promise<Profile | null> {
   
   try {
     console.log(`🔍 Fetching profile ID ${id} from database...`);
-    const rows = await sql<Profile>`SELECT * FROM profiles WHERE id = ${id}`;
-    console.log(rows[0] ? `✅ Found profile: ${rows[0].name}` : `❌ Profile not found`);
-    return rows[0] || null;
+    const result = await sql<Profile>`SELECT * FROM profiles WHERE id = ${id}`;
+    console.log(result.rows[0] ? `✅ Found profile: ${result.rows[0].name}` : `❌ Profile not found`);
+    return result.rows[0] || null;
   } catch (error) {
     console.error('❌ Database error, falling back to in-memory storage:', error);
     return mockProfiles.find(p => p.id === id) || null;
@@ -199,9 +199,9 @@ export async function getProfileBySlug(slug: string): Promise<Profile | null> {
   
   try {
     console.log(`🔍 Fetching profile slug "${slug}" from database...`);
-    const rows = await sql<Profile>`SELECT * FROM profiles WHERE url_slug = ${slug}`;
-    console.log(rows[0] ? `✅ Found profile: ${rows[0].name}` : `❌ Profile not found`);
-    return rows[0] || null;
+    const result = await sql<Profile>`SELECT * FROM profiles WHERE url_slug = ${slug}`;
+    console.log(result.rows[0] ? `✅ Found profile: ${result.rows[0].name}` : `❌ Profile not found`);
+    return result.rows[0] || null;
   } catch (error) {
     console.error('❌ Database error, falling back to in-memory storage:', error);
     return mockProfiles.find(p => p.url_slug === slug) || null;
@@ -434,7 +434,7 @@ export async function logTokenUsage(data: Omit<TokenUsage, 'id' | 'created_at'>)
   
   try {
     console.log('💾 Inserting token usage into database...');
-    const rows = await sql<TokenUsage>`
+    const result = await sql<TokenUsage>`
       INSERT INTO token_usage (
         profile_id, operation_type, tokens_used, lindy_agent_id, event_id
       )
@@ -462,13 +462,13 @@ export async function getTokenUsage(profileId: number): Promise<TokenUsage[]> {
   
   try {
     console.log(`📊 Fetching token usage for profile ${profileId} from database...`);
-    const rows = await sql<TokenUsage>`
+    const result = await sql<TokenUsage>`
       SELECT * FROM token_usage 
       WHERE profile_id = ${profileId}
       ORDER BY created_at DESC
     `;
     console.log(`✅ Found ${rows.length} token usage records`);
-    return rows;
+    return result.rows;
   } catch (error) {
     console.error('❌ Database error fetching token usage:', error);
     console.log('📦 Falling back to in-memory storage');
