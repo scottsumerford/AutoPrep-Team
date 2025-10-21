@@ -27,13 +27,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Trigger the Lindy agent via webhook
-    const webhookUrl = 'https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa';
+    const webhookUrl = process.env.LINDY_WEBHOOK_URL;
+    const webhookSecret = process.env.LINDY_WEBHOOK_SECRET;
     
     if (!webhookUrl) {
       console.error('❌ Webhook URL not configured');
       return NextResponse.json({ 
         success: false, 
         error: 'Webhook URL not configured' 
+      }, { status: 500 });
+    }
+
+    if (!webhookSecret) {
+      console.error('❌ Webhook secret not configured');
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Webhook secret not configured' 
       }, { status: 500 });
     }
 
@@ -45,7 +54,7 @@ export async function POST(request: NextRequest) {
       event_title: event_title,
       event_description: event_description,
       attendee_email: attendee_email,
-      webhook_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
+      webhook_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
     };
 
     console.log('📤 Sending to agent:', agentPayload);
@@ -55,6 +64,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Webhook-Secret': webhookSecret,
       },
       body: JSON.stringify(agentPayload)
     });
