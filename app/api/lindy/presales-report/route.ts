@@ -26,27 +26,28 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Trigger the Lindy agent via webhook
-    const webhookUrl = process.env.LINDY_WEBHOOK_URL;
-    const webhookSecret = process.env.LINDY_WEBHOOK_SECRET;
+    // Trigger the Lindy agent via webhook - Pre-sales Report Agent specific webhook
+    const webhookUrl = process.env.LINDY_PRESALES_WEBHOOK_URL;
+    const webhookSecret = process.env.LINDY_PRESALES_WEBHOOK_SECRET;
     
     if (!webhookUrl) {
-      console.error('❌ Webhook URL not configured');
+      console.error('❌ Pre-sales webhook URL not configured');
       return NextResponse.json({ 
         success: false, 
-        error: 'Webhook URL not configured' 
+        error: 'Pre-sales webhook URL not configured' 
       }, { status: 500 });
     }
 
     if (!webhookSecret) {
-      console.error('❌ Webhook secret not configured');
+      console.error('❌ Pre-sales webhook secret not configured');
       return NextResponse.json({ 
         success: false, 
-        error: 'Webhook secret not configured' 
+        error: 'Pre-sales webhook secret not configured' 
       }, { status: 500 });
     }
 
-    console.log('🔗 Triggering Lindy agent via webhook');
+    console.log('🔗 Triggering Pre-sales Report Lindy agent via webhook');
+    console.log('📍 Webhook URL:', webhookUrl);
 
     // Prepare the payload for the agent
     const agentPayload = {

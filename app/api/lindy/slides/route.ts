@@ -26,27 +26,28 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Trigger the Lindy agent via webhook
-    const webhookUrl = process.env.LINDY_WEBHOOK_URL;
-    const webhookSecret = process.env.LINDY_WEBHOOK_SECRET;
+    // Trigger the Lindy agent via webhook - Slides Generation Agent specific webhook
+    const webhookUrl = process.env.LINDY_SLIDES_WEBHOOK_URL;
+    const webhookSecret = process.env.LINDY_SLIDES_WEBHOOK_SECRET;
     
     if (!webhookUrl) {
-      console.error('❌ Webhook URL not configured');
+      console.error('❌ Slides webhook URL not configured');
       return NextResponse.json({ 
         success: false, 
-        error: 'Webhook URL not configured' 
+        error: 'Slides webhook URL not configured' 
       }, { status: 500 });
     }
 
     if (!webhookSecret) {
-      console.error('❌ Webhook secret not configured');
+      console.error('❌ Slides webhook secret not configured');
       return NextResponse.json({ 
         success: false, 
-        error: 'Webhook secret not configured' 
+        error: 'Slides webhook secret not configured' 
       }, { status: 500 });
     }
 
-    console.log('🔗 Triggering Lindy agent via webhook');
+    console.log('🔗 Triggering Slides Generation Lindy agent via webhook');
+    console.log('📍 Webhook URL:', webhookUrl);
 
     // Prepare the payload for the agent
     const agentPayload = {
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      message: 'Slides generation started. You will be notified when it is ready.',
+      message: 'Slides generation started. You will be notified when they are ready.',
       event_id
     });
   } catch (error) {
