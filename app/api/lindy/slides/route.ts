@@ -26,19 +26,18 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Trigger the Lindy agent via Lindy API
-    const lindyApiKey = process.env.LINDY_API_KEY;
-    const agentId = '68ed392b02927e7ace232732'; // Slides Generation Agent
+    // Trigger the Lindy agent via webhook
+    const webhookUrl = 'https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa';
     
-    if (!lindyApiKey) {
-      console.error('❌ LINDY_API_KEY not configured');
+    if (!webhookUrl) {
+      console.error('❌ Webhook URL not configured');
       return NextResponse.json({ 
         success: false, 
-        error: 'Lindy API key not configured' 
+        error: 'Webhook URL not configured' 
       }, { status: 500 });
     }
 
-    console.log('🔗 Triggering Lindy agent via API:', agentId);
+    console.log('🔗 Triggering Lindy agent via webhook');
 
     // Prepare the payload for the agent
     const agentPayload = {
@@ -51,28 +50,24 @@ export async function POST(request: NextRequest) {
 
     console.log('📤 Sending to agent:', agentPayload);
 
-    // Call the Lindy API to invoke the agent
-    const agentResponse = await fetch(
-      `https://api.lindy.ai/v1/agents/${agentId}/invoke`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${lindyApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ input: agentPayload })
-      }
-    );
+    // Call the webhook to invoke the agent
+    const webhookResponse = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(agentPayload)
+    });
 
-    if (!agentResponse.ok) {
-      const errorText = await agentResponse.text();
-      console.error('❌ Lindy API failed:', {
-        status: agentResponse.status,
+    if (!webhookResponse.ok) {
+      const errorText = await webhookResponse.text();
+      console.error('❌ Webhook failed:', {
+        status: webhookResponse.status,
         error: errorText
       });
       return NextResponse.json({ 
         success: false, 
-        error: `Lindy API failed: ${agentResponse.status}` 
+        error: `Webhook failed: ${webhookResponse.status}` 
       }, { status: 500 });
     }
 
