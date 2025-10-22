@@ -4,7 +4,7 @@ import { updateEventSlidesStatus, getEventById } from '@/lib/db';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { event_id, event_title, event_description, attendee_email, profile_id } = body;
+    const { event_id, event_title, event_description, attendee_email } = body;
 
     console.log('📊 Starting slides generation:', {
       event_id,
