@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateEventSlidesStatus, getEventById } from '@/lib/db';
+import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { event_id, event_title, event_description, attendee_email } = body;
 
-    console.log('📊 Starting slides generation:', {
+    console.log('🎬 Starting slides generation:', {
       event_id,
       event_title,
       attendee_email
@@ -60,14 +61,23 @@ export async function POST(request: NextRequest) {
 
     console.log('📤 Sending to agent:', agentPayload);
 
-    // Call the webhook to invoke the agent
+    // Create HMAC signature for the payload
+    const payloadString = JSON.stringify(agentPayload);
+    const signature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(payloadString)
+      .digest('hex');
+
+    console.log('🔐 Generated HMAC signature for webhook');
+
+    // Call the webhook to invoke the agent with signature in header
     const webhookResponse = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Webhook-Secret': webhookSecret,
+        'X-Lindy-Signature': signature,
       },
-      body: JSON.stringify(agentPayload)
+      body: payloadString
     });
 
     if (!webhookResponse.ok) {
