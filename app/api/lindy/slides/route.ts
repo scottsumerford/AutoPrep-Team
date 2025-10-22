@@ -4,12 +4,13 @@ import { updateEventSlidesStatus, getEventById } from '@/lib/db';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { event_id, event_title, event_description, attendee_email } = body;
+    const { event_id, event_title, event_description, attendee_email, file_id } = body;
 
     console.log('🎬 Starting slides generation:', {
       event_id,
       event_title,
-      attendee_email
+      attendee_email,
+      file_id
     });
 
     // Update status to processing
@@ -26,66 +27,65 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Get Lindy API key
-    const lindyApiKey = process.env.LINDY_API_KEY;
-    
-    if (!lindyApiKey) {
-      console.error('❌ Lindy API key not configured');
+    // Validate file_id is provided (required for slides generation)
+    if (!file_id) {
+      console.error('❌ File ID not provided for slides generation');
       return NextResponse.json({ 
         success: false, 
-        error: 'Lindy API key not configured' 
-      }, { status: 500 });
+        error: 'File ID is required for slides generation' 
+      }, { status: 400 });
     }
 
-    const agentId = '68ed392b02927e7ace232732'; // Slides Generation Agent
+    const webhookUrl = 'https://api.lindy.ai/webhook/66bf87f2-034e-463b-a7da-83e9adbf03d4';
 
-    console.log('🔗 Triggering Slides Generation Lindy agent via API');
-    console.log('📍 Agent ID:', agentId);
+    console.log('🔗 Triggering Slides Generation Lindy agent via webhook');
+    console.log('📍 Webhook URL:', webhookUrl);
 
     // Prepare the payload for the agent
+    // Note: Slides agent expects the pre-sales report file ID
     const agentPayload = {
-      input: {
-        calendar_event_id: event_id,
-        event_title: event_title,
-        event_description: event_description,
-        attendee_email: attendee_email,
-        webhook_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
-      }
+      fileId: file_id,
+      mimeType: 'application/pdf',
+      format: 'Google Slides',
+      // Additional context for the agent
+      meeting_title: event_title,
+      attendee_email: attendee_email,
+      webhook_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`,
+      calendar_event_id: event_id
     };
 
     console.log('📤 Sending to agent:', agentPayload);
 
-    // Call the Lindy API to invoke the agent
-    const lindyResponse = await fetch(`https://api.lindy.ai/v1/agents/${agentId}/invoke`, {
+    // Call the webhook to invoke the agent (no authentication required for slides)
+    const webhookResponse = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${lindyApiKey}`,
       },
       body: JSON.stringify(agentPayload)
     });
 
-    if (!lindyResponse.ok) {
-      const errorText = await lindyResponse.text();
-      console.error('❌ Lindy API failed:', {
-        status: lindyResponse.status,
+    if (!webhookResponse.ok) {
+      const errorText = await webhookResponse.text();
+      console.error('❌ Webhook failed:', {
+        status: webhookResponse.status,
         error: errorText
       });
       return NextResponse.json({ 
         success: false, 
-        error: `Lindy API failed: ${lindyResponse.status}` 
+        error: `Webhook failed: ${webhookResponse.status}` 
       }, { status: 500 });
     }
 
-    const lindyData = await lindyResponse.json();
+    const webhookData = await webhookResponse.json();
     console.log('✅ Slides generation triggered successfully');
-    console.log('📊 Lindy response:', lindyData);
+    console.log('📊 Webhook response:', webhookData);
     
     return NextResponse.json({
       success: true,
       message: 'Slides generation started. You will be notified when they are ready.',
       event_id,
-      lindy_response: lindyData
+      webhook_response: webhookData
     });
   } catch (error) {
     console.error('Error generating slides:', error);
