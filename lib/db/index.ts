@@ -755,7 +755,7 @@ export async function markStalePresalesRuns(): Promise<number> {
       SET presales_report_status = 'failed'
       WHERE presales_report_status = 'processing'
         AND presales_report_url IS NULL
-        AND NOW() - created_at > interval '15 minutes'
+        AND created_at < NOW() - INTERVAL '15 minutes'
       RETURNING id
     `;
     const count = result.length;
@@ -795,7 +795,7 @@ export async function markStaleSlidesRuns(): Promise<number> {
       SET slides_status = 'failed'
       WHERE slides_status = 'processing'
         AND slides_url IS NULL
-        AND NOW() - created_at > interval '15 minutes'
+        AND created_at < NOW() - INTERVAL '15 minutes'
       RETURNING id
     `;
     const count = result.length;
