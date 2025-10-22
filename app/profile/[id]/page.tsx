@@ -42,9 +42,11 @@ interface CalendarEvent {
   presales_report_status?: 'pending' | 'processing' | 'completed' | 'failed';
   presales_report_url?: string;
   presales_report_generated_at?: string;
+  presales_report_started_at?: string;
   slides_status?: 'pending' | 'processing' | 'completed' | 'failed';
   slides_url?: string;
   slides_generated_at?: string;
+  slides_started_at?: string;
   created_at?: string;
 }
 
@@ -90,15 +92,15 @@ function areSlidesStale(event: CalendarEvent): boolean {
   }
   
   // Check if created_at is more than 15 minutes ago
-  if (!event.created_at) {
+  if (!event.slides_started_at) {
     return false;
   }
   
-  const createdTime = new Date(event.created_at).getTime();
+  const startedTime = new Date(event.slides_started_at).getTime();
   const now = new Date().getTime();
   const fifteenMinutesMs = 15 * 60 * 1000;
   
-  return (now - createdTime) > fifteenMinutesMs;
+  return (now - startedTime) > fifteenMinutesMs;
 }
 
 export default function ProfilePage() {

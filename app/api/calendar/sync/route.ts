@@ -41,7 +41,8 @@ export async function POST(request: NextRequest) {
         console.log(`📥 Fetched ${googleEvents.length} events from Google Calendar`);
         
         // Delete events that no longer exist in Google Calendar
-        const googleEventIds = googleEvents.map(e => e.id);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const googleEventIds = googleEvents.map((e: any) => e.id);
         const deleted = await deleteRemovedCalendarEvents(parseInt(profile_id), 'google', googleEventIds);
         deletedEvents += deleted;
         
@@ -81,8 +82,10 @@ export async function POST(request: NextRequest) {
         
         console.log(`📥 Fetched ${outlookEvents.length} events from Outlook Calendar`);
         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const outlookEventIds = outlookEvents.map((e: any) => e.id);
         // Delete events that no longer exist in Outlook Calendar
-        const outlookEventIds = outlookEvents.map(e => e.id);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const deleted = await deleteRemovedCalendarEvents(parseInt(profile_id), 'outlook', outlookEventIds);
         deletedEvents += deleted;
         

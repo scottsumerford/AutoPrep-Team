@@ -55,9 +55,11 @@ export interface CalendarEvent {
   presales_report_status?: 'pending' | 'processing' | 'completed' | 'failed';
   presales_report_url?: string;
   presales_report_generated_at?: Date;
+  presales_report_started_at?: Date;
   slides_status?: 'pending' | 'processing' | 'completed' | 'failed';
   slides_url?: string;
   slides_generated_at?: Date;
+  slides_started_at?: Date;
   created_at: Date;
 }
 
@@ -653,6 +655,7 @@ export async function updateEventPresalesStatus(
     event.presales_report_status = status;
     if (reportUrl) event.presales_report_url = reportUrl;
     if (status === 'completed') event.presales_report_generated_at = new Date();
+    if (status === 'processing') event.presales_report_started_at = new Date();
     return event;
   }
   
@@ -663,6 +666,7 @@ export async function updateEventPresalesStatus(
       SET 
         presales_report_status = ${status},
         presales_report_url = ${reportUrl || null},
+        presales_report_started_at = ${status === 'processing' ? new Date() : null},
         presales_report_generated_at = ${status === 'completed' ? new Date() : null}
       WHERE id = ${eventId}
       RETURNING *
@@ -688,6 +692,7 @@ export async function updateEventSlidesStatus(
     event.slides_status = status;
     if (slidesUrl) event.slides_url = slidesUrl;
     if (status === 'completed') event.slides_generated_at = new Date();
+    if (status === 'processing') event.slides_started_at = new Date();
     return event;
   }
   
@@ -698,6 +703,7 @@ export async function updateEventSlidesStatus(
       SET 
         slides_status = ${status},
         slides_url = ${slidesUrl || null},
+        slides_started_at = ${status === 'processing' ? new Date() : null},
         slides_generated_at = ${status === 'completed' ? new Date() : null}
       WHERE id = ${eventId}
       RETURNING *
