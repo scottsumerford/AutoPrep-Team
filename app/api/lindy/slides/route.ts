@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const webhookUrl = 'https://api.lindy.ai/webhook/66bf87f2-034e-463b-a7da-83e9adbf03d4';
+    const webhookUrl = 'https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4';
 
     console.log('🔗 Triggering Slides Generation Lindy agent via webhook');
     console.log('📍 Webhook URL:', webhookUrl);

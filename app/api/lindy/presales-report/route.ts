@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    const webhookUrl = 'https://api.lindy.ai/webhooks/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa';
+    const webhookUrl = 'https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa';
 
     console.log('🔗 Triggering Pre-sales Report Lindy agent via webhook');
     console.log('📍 Webhook URL:', webhookUrl);
