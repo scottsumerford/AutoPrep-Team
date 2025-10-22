@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateEventPresalesStatus, getEventById } from '@/lib/db';
+import { updateEventPresalesStatus, getEventById, markStalePresalesRuns } from '@/lib/db';
 
 // Force redeploy with webhook secret
 export async function POST(request: NextRequest) {
   try {
+    // Mark any stale presales runs as failed (> 15 minutes)
+    await markStalePresalesRuns();
+
     const body = await request.json();
     const { event_id, event_title, event_description, attendee_email } = body;
 

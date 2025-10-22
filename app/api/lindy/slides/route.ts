@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateEventSlidesStatus, getEventById } from '@/lib/db';
+import { updateEventSlidesStatus, getEventById, markStaleSlidesRuns } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
+    // Mark any stale slides runs as failed (> 15 minutes)
+    await markStaleSlidesRuns();
+
     const body = await request.json();
     const { event_id, event_title, event_description, attendee_email, file_id } = body;
 

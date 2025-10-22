@@ -41,8 +41,11 @@ interface CalendarEvent {
   source: 'google' | 'outlook';
   presales_report_status?: 'pending' | 'processing' | 'completed' | 'failed';
   presales_report_url?: string;
+  presales_report_generated_at?: string;
   slides_status?: 'pending' | 'processing' | 'completed' | 'failed';
   slides_url?: string;
+  slides_generated_at?: string;
+  created_at?: string;
 }
 
 interface TokenStats {
@@ -50,6 +53,52 @@ interface TokenStats {
   presales_report: number;
   slides_generation: number;
   total: number;
+}
+
+// Helper function to check if a report is stale (processing > 15 minutes)
+function isReportStale(event: CalendarEvent): boolean {
+  if (event.presales_report_status !== 'processing') {
+    return false;
+  }
+  
+  // If it has a URL, it's not stale
+  if (event.presales_report_url) {
+    return false;
+  }
+  
+  // Check if created_at is more than 15 minutes ago
+  if (!event.created_at) {
+    return false;
+  }
+  
+  const createdTime = new Date(event.created_at).getTime();
+  const now = new Date().getTime();
+  const fifteenMinutesMs = 15 * 60 * 1000;
+  
+  return (now - createdTime) > fifteenMinutesMs;
+}
+
+// Helper function to check if slides are stale (processing > 15 minutes)
+function areSlidesStale(event: CalendarEvent): boolean {
+  if (event.slides_status !== 'processing') {
+    return false;
+  }
+  
+  // If it has a URL, it's not stale
+  if (event.slides_url) {
+    return false;
+  }
+  
+  // Check if created_at is more than 15 minutes ago
+  if (!event.created_at) {
+    return false;
+  }
+  
+  const createdTime = new Date(event.created_at).getTime();
+  const now = new Date().getTime();
+  const fifteenMinutesMs = 15 * 60 * 1000;
+  
+  return (now - createdTime) > fifteenMinutesMs;
 }
 
 export default function ProfilePage() {
@@ -476,6 +525,8 @@ export default function ProfilePage() {
                     {filteredEvents.map((event) => {
                       const reportStatus = event.presales_report_status || 'pending';
                       const slidesStatus = event.slides_status || 'pending';
+                      const reportIsStale = isReportStale(event);
+                      const slidesAreStale = areSlidesStale(event);
                       
                       return (
                         <Card key={event.id} className="border-l-4 border-l-blue-500">
@@ -508,7 +559,7 @@ export default function ProfilePage() {
                                   <Download className="w-4 h-4" />
                                   Download PDF Report
                                 </Button>
-                              ) : reportStatus === 'processing' ? (
+                              ) : reportStatus === 'processing' && !reportIsStale ? (
                                 <Button 
                                   disabled
                                   variant="default"
@@ -518,7 +569,7 @@ export default function ProfilePage() {
                                   <Loader2 className="w-4 h-4 animate-spin" />
                                   Generating Report...
                                 </Button>
-                              ) : reportStatus === 'failed' ? (
+                              ) : reportStatus === 'failed' || reportIsStale ? (
                                 <Button 
                                   onClick={() => handleGenerateReport(event)}
                                   variant="destructive"
@@ -526,7 +577,7 @@ export default function ProfilePage() {
                                   className="gap-2"
                                 >
                                   <FileText className="w-4 h-4" />
-                                  Retry Report
+                                  {reportIsStale ? 'Try again' : 'Retry Report'}
                                 </Button>
                               ) : (
                                 <Button 
@@ -551,7 +602,7 @@ export default function ProfilePage() {
                                   <Download className="w-4 h-4" />
                                   Download Slides
                                 </Button>
-                              ) : slidesStatus === 'processing' ? (
+                              ) : slidesStatus === 'processing' && !slidesAreStale ? (
                                 <Button 
                                   disabled
                                   variant="outline"
@@ -561,7 +612,7 @@ export default function ProfilePage() {
                                   <Loader2 className="w-4 h-4 animate-spin" />
                                   Creating Slides...
                                 </Button>
-                              ) : slidesStatus === 'failed' ? (
+                              ) : slidesStatus === 'failed' || slidesAreStale ? (
                                 <Button 
                                   onClick={() => handleGenerateSlides(event)}
                                   variant="destructive"
@@ -569,7 +620,7 @@ export default function ProfilePage() {
                                   className="gap-2"
                                 >
                                   <Presentation className="w-4 h-4" />
-                                  Retry Slides
+                                  {slidesAreStale ? 'Try again' : 'Retry Slides'}
                                 </Button>
                               ) : (
                                 <Button 

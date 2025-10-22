@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProfileById, saveCalendarEvent } from '@/lib/db';
+import { getProfileById, saveCalendarEvent, deleteRemovedCalendarEvents } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     let syncedEvents = 0;
+    let deletedEvents = 0;
 
     // Sync Google Calendar if connected
     if (profile.google_access_token) {
@@ -38,6 +39,11 @@ export async function POST(request: NextRequest) {
         }
         
         console.log(`📥 Fetched ${googleEvents.length} events from Google Calendar`);
+        
+        // Delete events that no longer exist in Google Calendar
+        const googleEventIds = googleEvents.map(e => e.id);
+        const deleted = await deleteRemovedCalendarEvents(parseInt(profile_id), 'google', googleEventIds);
+        deletedEvents += deleted;
         
         for (const event of googleEvents) {
           console.log(`💾 Saving Google event: ${event.summary || 'No Title'} (ID: ${event.id})`);
@@ -75,6 +81,11 @@ export async function POST(request: NextRequest) {
         
         console.log(`📥 Fetched ${outlookEvents.length} events from Outlook Calendar`);
         
+        // Delete events that no longer exist in Outlook Calendar
+        const outlookEventIds = outlookEvents.map(e => e.id);
+        const deleted = await deleteRemovedCalendarEvents(parseInt(profile_id), 'outlook', outlookEventIds);
+        deletedEvents += deleted;
+        
         for (const event of outlookEvents) {
           console.log(`💾 Saving Outlook event: ${event.subject || 'No Title'} (ID: ${event.id})`);
           await saveCalendarEvent({
@@ -101,7 +112,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       synced_events: syncedEvents,
-      message: `Successfully synced ${syncedEvents} events`
+      deleted_events: deletedEvents,
+      message: `Successfully synced ${syncedEvents} events and deleted ${deletedEvents} removed events`
     });
   } catch (error) {
     console.error('Error syncing calendar:', error);

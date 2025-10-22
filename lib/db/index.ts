@@ -726,3 +726,141 @@ export async function getEventById(eventId: number): Promise<CalendarEvent | nul
     return mockEvents.find(e => e.id === eventId) || null;
   }
 }
+
+// Mark stale presales report runs as failed (if processing > 15 minutes)
+export async function markStalePresalesRuns(): Promise<number> {
+  if (!isDatabaseConfigured()) {
+    console.log('⏱️ Checking for stale presales runs in memory');
+    let count = 0;
+    const now = new Date();
+    mockEvents.forEach(event => {
+      if (
+        event.presales_report_status === 'processing' &&
+        !event.presales_report_url &&
+        event.created_at &&
+        (now.getTime() - event.created_at.getTime()) > 15 * 60 * 1000
+      ) {
+        event.presales_report_status = 'failed';
+        count++;
+      }
+    });
+    if (count > 0) console.log(`⏱️ Marked ${count} stale presales runs as failed`);
+    return count;
+  }
+
+  try {
+    console.log('⏱️ Checking for stale presales report runs (> 15 minutes)...');
+    const result = await sql`
+      UPDATE calendar_events
+      SET presales_report_status = 'failed'
+      WHERE presales_report_status = 'processing'
+        AND presales_report_url IS NULL
+        AND NOW() - created_at > interval '15 minutes'
+      RETURNING id
+    `;
+    const count = result.length;
+    if (count > 0) console.log(`⏱️ Marked ${count} stale presales runs as failed`);
+    return count;
+  } catch (error) {
+    console.error('❌ Database error marking stale presales runs:', error);
+    return 0;
+  }
+}
+
+// Mark stale slides runs as failed (if processing > 15 minutes)
+export async function markStaleSlidesRuns(): Promise<number> {
+  if (!isDatabaseConfigured()) {
+    console.log('⏱️ Checking for stale slides runs in memory');
+    let count = 0;
+    const now = new Date();
+    mockEvents.forEach(event => {
+      if (
+        event.slides_status === 'processing' &&
+        !event.slides_url &&
+        event.created_at &&
+        (now.getTime() - event.created_at.getTime()) > 15 * 60 * 1000
+      ) {
+        event.slides_status = 'failed';
+        count++;
+      }
+    });
+    if (count > 0) console.log(`⏱️ Marked ${count} stale slides runs as failed`);
+    return count;
+  }
+
+  try {
+    console.log('⏱️ Checking for stale slides runs (> 15 minutes)...');
+    const result = await sql`
+      UPDATE calendar_events
+      SET slides_status = 'failed'
+      WHERE slides_status = 'processing'
+        AND slides_url IS NULL
+        AND NOW() - created_at > interval '15 minutes'
+      RETURNING id
+    `;
+    const count = result.length;
+    if (count > 0) console.log(`⏱️ Marked ${count} stale slides runs as failed`);
+    return count;
+  } catch (error) {
+    console.error('❌ Database error marking stale slides runs:', error);
+    return 0;
+  }
+}
+
+// Delete calendar events that no longer exist in the remote calendar
+export async function deleteRemovedCalendarEvents(
+  profileId: number,
+  source: 'google' | 'outlook',
+  remoteEventIds: string[]
+): Promise<number> {
+  if (!isDatabaseConfigured()) {
+    console.log(`🗑️ Deleting removed ${source} events for profile ${profileId} in memory`);
+    const remoteSet = new Set(remoteEventIds);
+    const beforeCount = mockEvents.length;
+    const filtered = mockEvents.filter(e => 
+      !(e.profile_id === profileId && e.source === source && !remoteSet.has(e.event_id))
+    );
+    const deletedCount = beforeCount - filtered.length;
+    if (deletedCount > 0) {
+      mockEvents.length = 0;
+      mockEvents.push(...filtered);
+      console.log(`🗑️ Deleted ${deletedCount} removed events`);
+    }
+    return deletedCount;
+  }
+
+  try {
+    console.log(`🗑️ Deleting removed ${source} events for profile ${profileId}...`);
+    
+    // Build the list of remote event IDs to keep
+    const remoteEventIdList = remoteEventIds.map(id => `'${id}'`).join(',');
+    
+    if (remoteEventIds.length === 0) {
+      // If no remote events, delete all local events for this profile/source
+      const result = await sql`
+        DELETE FROM calendar_events
+        WHERE profile_id = ${profileId}
+          AND source = ${source}
+        RETURNING id
+      `;
+      const count = result.length;
+      if (count > 0) console.log(`🗑️ Deleted ${count} removed events (all events removed from remote)`);
+      return count;
+    }
+    
+    // Delete events that exist locally but not in remote
+    const result = await sql.unsafe(`
+      DELETE FROM calendar_events
+      WHERE profile_id = ${profileId}
+        AND source = '${source}'
+        AND event_id NOT IN (${remoteEventIdList})
+      RETURNING id
+    `);
+    const count = result.length;
+    if (count > 0) console.log(`🗑️ Deleted ${count} removed events`);
+    return count;
+  } catch (error) {
+    console.error('❌ Database error deleting removed events:', error);
+    return 0;
+  }
+}
