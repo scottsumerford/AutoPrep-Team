@@ -27,9 +27,18 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Get webhook secret
+    // Get webhook URL and secret from environment
+    const webhookUrl = process.env.LINDY_PRESALES_WEBHOOK_URL;
     const webhookSecret = process.env.LINDY_PRESALES_WEBHOOK_SECRET;
     
+    if (!webhookUrl) {
+      console.error('❌ Pre-sales webhook URL not configured');
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Pre-sales webhook URL not configured' 
+      }, { status: 500 });
+    }
+
     if (!webhookSecret) {
       console.error('❌ Pre-sales webhook secret not configured');
       return NextResponse.json({ 
@@ -37,8 +46,6 @@ export async function POST(request: NextRequest) {
         error: 'Pre-sales webhook secret not configured' 
       }, { status: 500 });
     }
-
-    const webhookUrl = 'https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa';
 
     console.log('🔗 Triggering Pre-sales Report Lindy agent via webhook');
     console.log('📍 Webhook URL:', webhookUrl);

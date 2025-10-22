@@ -36,7 +36,25 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const webhookUrl = 'https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4';
+    // Get webhook URL and secret from environment
+    const webhookUrl = process.env.LINDY_SLIDES_WEBHOOK_URL;
+    const webhookSecret = process.env.LINDY_SLIDES_WEBHOOK_SECRET;
+
+    if (!webhookUrl) {
+      console.error('❌ Slides webhook URL not configured');
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Slides webhook URL not configured' 
+      }, { status: 500 });
+    }
+
+    if (!webhookSecret) {
+      console.error('❌ Slides webhook secret not configured');
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Slides webhook secret not configured' 
+      }, { status: 500 });
+    }
 
     console.log('🔗 Triggering Slides Generation Lindy agent via webhook');
     console.log('📍 Webhook URL:', webhookUrl);
@@ -56,11 +74,12 @@ export async function POST(request: NextRequest) {
 
     console.log('📤 Sending to agent:', agentPayload);
 
-    // Call the webhook to invoke the agent (no authentication required for slides)
+    // Call the webhook to invoke the agent
     const webhookResponse = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${webhookSecret}`,
       },
       body: JSON.stringify(agentPayload)
     });
