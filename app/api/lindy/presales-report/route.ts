@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateEventPresalesStatus, getEventById } from '@/lib/db';
 
+// Force redeploy with webhook secret
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
