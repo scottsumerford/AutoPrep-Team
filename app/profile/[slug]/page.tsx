@@ -120,6 +120,8 @@ export default function ProfilePage() {
   const [showOutlookDialog, setShowOutlookDialog] = useState(false);
   const [showGoogleDisconnectDialog, setShowGoogleDisconnectDialog] = useState(false);
   const [showOutlookDisconnectDialog, setShowOutlookDisconnectDialog] = useState(false);
+  const [generatingReportId, setGeneratingReportId] = useState<number | null>(null);
+  const [generatingSlidesId, setGeneratingSlidesId] = useState<number | null>(null);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -194,6 +196,62 @@ export default function ProfilePage() {
       console.error('Error syncing calendar:', error);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleGeneratePresalesReport = async (event: CalendarEvent) => {
+    setGeneratingReportId(event.id);
+    try {
+      const response = await fetch('/api/lindy/presales-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id: event.event_id,
+          event_title: event.title,
+          event_description: event.description || '',
+          attendee_email: profile?.email || '',
+        }),
+      });
+      
+      if (response.ok) {
+        console.log('✅ Pre-sales report generation started');
+        // Refresh events to show updated status
+        await fetchEvents();
+      } else {
+        console.error('❌ Failed to generate pre-sales report');
+      }
+    } catch (error) {
+      console.error('Error generating pre-sales report:', error);
+    } finally {
+      setGeneratingReportId(null);
+    }
+  };
+
+  const handleGenerateSlides = async (event: CalendarEvent) => {
+    setGeneratingSlidesId(event.id);
+    try {
+      const response = await fetch('/api/lindy/slides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id: event.event_id,
+          event_title: event.title,
+          event_description: event.description || '',
+          attendee_email: profile?.email || '',
+        }),
+      });
+      
+      if (response.ok) {
+        console.log('✅ Slides generation started');
+        // Refresh events to show updated status
+        await fetchEvents();
+      } else {
+        console.error('❌ Failed to generate slides');
+      }
+    } catch (error) {
+      console.error('Error generating slides:', error);
+    } finally {
+      setGeneratingSlidesId(null);
     }
   };
 
@@ -487,14 +545,43 @@ export default function ProfilePage() {
                         )}
                         <div className="flex gap-2 flex-wrap">
                           {event.presales_report_status && (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-2">
                               <FileText className="w-4 h-4" />
                               <span className="text-xs">
                                 Report: {event.presales_report_status}
                               </span>
+                              {event.presales_report_status === 'pending' && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleGeneratePresalesReport(event)}
+                                  disabled={generatingReportId === event.id}
+                                >
+                                  {generatingReportId === event.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Generating...
+                                    </>
+                                  ) : (
+                                    'Generate'
+                                  )}
+                                </Button>
+                              )}
                               {isReportStale(event) && (
-                                <Button size="sm" variant="outline" className="ml-2">
-                                  Try again
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleGeneratePresalesReport(event)}
+                                  disabled={generatingReportId === event.id}
+                                >
+                                  {generatingReportId === event.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Retrying...
+                                    </>
+                                  ) : (
+                                    'Try again'
+                                  )}
                                 </Button>
                               )}
                               {event.presales_report_url && (
@@ -510,14 +597,43 @@ export default function ProfilePage() {
                             </div>
                           )}
                           {event.slides_status && (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-2">
                               <Presentation className="w-4 h-4" />
                               <span className="text-xs">
                                 Slides: {event.slides_status}
                               </span>
+                              {event.slides_status === 'pending' && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleGenerateSlides(event)}
+                                  disabled={generatingSlidesId === event.id}
+                                >
+                                  {generatingSlidesId === event.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Generating...
+                                    </>
+                                  ) : (
+                                    'Generate'
+                                  )}
+                                </Button>
+                              )}
                               {areSlidesStale(event) && (
-                                <Button size="sm" variant="outline" className="ml-2">
-                                  Try again
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleGenerateSlides(event)}
+                                  disabled={generatingSlidesId === event.id}
+                                >
+                                  {generatingSlidesId === event.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Retrying...
+                                    </>
+                                  ) : (
+                                    'Try again'
+                                  )}
                                 </Button>
                               )}
                               {event.slides_url && (
