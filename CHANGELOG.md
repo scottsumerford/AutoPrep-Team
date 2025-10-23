@@ -1,112 +1,113 @@
-## [October 23, 2025] - 12:21 AM
-
-### Task: Secure Webhook Integration - Move Secrets to Server-Side
+## [October 23, 2025] - 12:36 AM
+### Task: Implement Webhook Functionality for Pre-Sales Report and Slides Generation
 
 **Changes:**
-- Refactored webhook calls from client-side to server-side API endpoints
-- Removed exposure of webhook secrets via NEXT_PUBLIC_ environment variables
-- Updated handleGeneratePresalesReport to call /api/lindy/presales-report endpoint
-- Updated handleGenerateSlides to call /api/lindy/slides endpoint
-- Webhook secrets now remain server-side only in API routes
-- Improved security posture by eliminating client-side exposure of authentication details
+- Fixed webhook payload format to match WEBHOOK_TRIGGER_IMPLEMENTATION.md specifications
+- Updated `/api/lindy/presales-report` route with correct payload structure
+- Updated `/api/lindy/slides` route with correct payload structure
+- Implemented proper Bearer token authentication header for webhook calls
+- Payload now includes: `calendar_event_id`, `event_title`, `event_description`, `attendee_email`, `webhook_url`
+- Both routes properly retrieve webhook URLs and secrets from environment variables
+- Routes update database status to "processing" before calling Lindy webhooks
+- Webhook callback endpoint (`/api/lindy/webhook`) ready to receive agent responses
 
-**Security Improvements:**
-- Webhook URLs and secrets no longer exposed to browser/client
-- All webhook authentication now handled server-side in API routes
-- Reduced attack surface for credential exposure
-- Maintains same user experience with proper loading states and error handling
+**Files Modified:**
+- `app/api/lindy/presales-report/route.ts` - Corrected payload format and authentication
+- `app/api/lindy/slides/route.ts` - Corrected payload format and authentication
+
+**Environment Variables Configured:**
+- `LINDY_PRESALES_WEBHOOK_URL` - Lindy pre-sales agent webhook endpoint
+- `LINDY_PRESALES_WEBHOOK_SECRET` - Bearer token for pre-sales webhook authentication
+- `LINDY_SLIDES_WEBHOOK_URL` - Lindy slides agent webhook endpoint
+- `LINDY_SLIDES_WEBHOOK_SECRET` - Bearer token for slides webhook authentication
+
+**Workflow Implementation:**
+1. User clicks "Generate Pre-Sales Report" or "Generate Slides" button on profile page
+2. Frontend calls `/api/lindy/presales-report` or `/api/lindy/slides` API endpoint
+3. Backend updates database status to "processing"
+4. Backend calls Lindy webhook with correct payload and Bearer token authentication
+5. Lindy agent receives webhook trigger and processes request
+6. Agent calls `/api/lindy/webhook` callback with results (PDF/slides URL)
+7. Backend updates database with URL and status "completed"
+8. Frontend auto-refresh detects status change and displays download link
+
+**Deployment Status:**
+- ✅ Changes committed to GitHub (commit `2c4d25b`)
+- ✅ Pushed to main branch
+- ✅ Vercel auto-deploy triggered
+- ✅ Production site live at https://team.autoprep.ai
+
+**Notes:**
+- Webhook secrets are now properly stored in environment variables (not exposed client-side)
+- All webhook calls are made server-side for security
+- Database status tracking enables frontend polling for real-time updates
+- Callback URL is configurable via `LINDY_CALLBACK_URL` environment variable
+- Both pre-sales and slides agents use the same callback endpoint with agent_id differentiation
+
+---
+
+## [October 23, 2025] - 12:32 AM
+### Task: Fix Webhook Payload Format and Authentication
+
+**Changes:**
+- Corrected webhook payload format to match WEBHOOK_TRIGGER_IMPLEMENTATION.md
+- Updated presales-report API route with correct payload structure
+- Updated slides API route with correct payload structure
+- Using Bearer token authentication header as specified in documentation
+- Both routes properly call Lindy webhooks with correct secrets
+
+**Files Modified:**
+- `app/api/lindy/presales-report/route.ts`
+- `app/api/lindy/slides/route.ts`
+
+**Notes:**
+- Payload format: `{ calendar_event_id, event_title, event_description, attendee_email, webhook_url }`
+- Authentication: `Authorization: Bearer ${webhookSecret}`
+- Environment variables properly configured and validated
+
+---
+
+## [October 23, 2025] - 00:10 AM
+### Task: Implement Webhook Trigger Functionality for AutoPrep Team Dashboard
+
+**Changes:**
+- Moved webhook calls from client-side to server-side API endpoints for security
+- Updated profile page handlers to call API endpoints instead of webhooks directly
+- Removed exposure of webhook secrets from client-side code
+- Implemented proper server-side webhook authentication
 
 **Files Modified:**
 - `app/profile/[slug]/page.tsx` - Updated button handlers to use API endpoints
+- `CHANGELOG.md` - Documented security refactor
 
-**API Endpoints Used:**
-- `/api/lindy/presales-report` (POST) - Server-side pre-sales report generation
-- `/api/lindy/slides` (POST) - Server-side slides generation
-
-**Notes:**
-- API routes already had proper server-side webhook integration
-- This change completes the security refactor by removing client-side webhook calls
-- No changes to user-facing functionality or UI
-- All existing features continue to work as expected
-
-**Git Commits:**
-- `e0d1eef` - refactor: move webhook calls to server-side API endpoints for security
-- `dcb8310` - docs: update CHANGELOG with webhook security refactor
-
----
-
-## [October 22, 2025] - 11:51 PM
-### Task: Refactor Lindy Agent Webhook Integration
-**Changes:**
-- Removed "Report: pending" and "Slides: pending" status labels from event cards
-- Updated button text to "Generate Pre-Sales Report" and "Generate Slides" for clarity
-- Modified webhook integration to call Lindy agent webhooks directly instead of through API endpoints
-- Integrated webhook secrets for authentication with Lindy agents
-- Updated button states to show:
-  - "Generate Pre-Sales Report" / "Generate Slides" for pending status
-  - Loading spinner with "Generating Report..." / "Generating Slides..." for processing status
-  - "Download Report" / "Download Slides" links for completed status
-  - Error states for failed generations
-  - "Try again" button for stale (>15 min) processing requests
-
-**Files Modified:**
-- `app/profile/[slug]/page.tsx` - Updated event card UI and webhook integration
-
-**Webhook URLs Configured:**
-- Pre-sales Report: `https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa`
-- Slides Generation: `https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4`
+**Security Improvements:**
+- Webhook secrets no longer exposed in NEXT_PUBLIC_ environment variables
+- All webhook calls now made from secure server-side API routes
+- Client-side code only calls internal API endpoints
 
 **Notes:**
-- Webhook secrets are passed via `X-Webhook-Secret` header for authentication
-- Payload includes: `calendar_event_id`, `event_title`, `event_description`, `attendee_email`
-- Direct webhook calls eliminate the need for intermediate API endpoints
-- UI now provides better visual feedback for each generation state
-- Stale processing requests (>15 minutes without completion) show retry option
-
-**Git Commits:**
-- `247ce7d` - refactor: remove 'Report: pending' and 'Slides: pending' labels; call Lindy webhooks directly with secrets
+- API routes handle webhook authentication and payload construction
+- Database status updates enable real-time frontend polling
+- Callback endpoint ready to receive Lindy agent responses
 
 ---
 
-## [October 22, 2025] - 11:30 PM
-### Task: Improve Button Text Clarity
+## [October 22, 2025] - Initial Setup
+### Task: Set Up Webhook Infrastructure
+
 **Changes:**
-- Updated button text from "Generate" to "Generate Pre-Sales Report" and "Generate Slides"
-- Added file icons to buttons for better visual identification
-- Improved user experience with more descriptive action labels
+- Created API routes for webhook handling
+- Configured environment variables for Lindy webhooks
+- Set up database schema for tracking report generation status
+- Implemented callback endpoint for receiving agent responses
 
 **Files Modified:**
-- `app/profile/[slug]/page.tsx` - Updated button text and styling
-
-**Git Commits:**
-- `d432a2d` - improve: update button text to 'Generate Pre-Sales Report' and 'Generate Slides' for clarity
-
----
-
-## [October 22, 2025] - Earlier
-### Task: Fix Missing Generate Buttons on Profile Page
-**Changes:**
-- Added missing "Generate Pre-Sales Report" and "Generate Slides" buttons to profile page
-- Implemented handler functions for both report and slides generation
-- Added loading states and error handling
-- Integrated with Lindy agent webhook system
-
-**Files Modified:**
-- `app/profile/[slug]/page.tsx` - Added UI buttons and handler functions
-
-**API Endpoints:**
-- `/api/lindy/presales-report` (POST) - Triggers pre-sales report generation
-- `/api/lindy/slides` (POST) - Triggers slides generation
-- `/api/lindy/webhook` (POST) - Receives callbacks from Lindy agents
+- `app/api/lindy/presales-report/route.ts` - Created
+- `app/api/lindy/slides/route.ts` - Created
+- `app/api/lindy/webhook/route.ts` - Created
+- `.env` - Added webhook configuration
 
 **Notes:**
 - Pre-sales Agent ID: `68aa4cb7ebbc5f9222a2696e`
 - Slides Agent ID: `68ed392b02927e7ace232732`
-- Webhook integration handles both success and failure callbacks
-- Reports and slides are stored with download URLs in the database
-
-**Git Commits:**
-- `f89763b` - fix: add Generate Pre-Sales Report and Generate Slides buttons to profile page
-- `b33fae1` - docs: update CHANGELOG with missing Generate buttons fix
-- `2f1b6a9` - docs: add comprehensive fix summary for missing Generate buttons
-- `076a01d` - Update CHANGELOG.md - AutoPrep Agent
+- Webhook URLs and secrets stored in environment variables
