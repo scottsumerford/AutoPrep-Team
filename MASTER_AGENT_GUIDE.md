@@ -1,7 +1,7 @@
 # AutoPrep Team Dashboard - Master Agent Guide
 
 **Last Updated:** October 22, 2025  
-**Version:** 1.0.0  
+**Version:** 1.1.0  
 **Status:** Production Ready
 
 ---
@@ -26,12 +26,27 @@
 ### Application URLs
 - **Local Development:** `http://localhost:3000`
 - **Production:** `https://team.autoprep.ai`
-- **Database:** PostgreSQL on `localhost:5432` (local) or Vercel Postgres (production)
+- **Database:** PostgreSQL on Supabase (production) or localhost:5432 (local)
+
+### Production Database (Supabase)
+- **Hostname:** `aws-0-us-east-1.pooler.supabase.com`
+- **Port:** `6543` (pooled connection)
+- **Database Name:** `postgres`
+- **Connection Type:** Pooled connection via environment variable `POSTGRES_URL`
+- **Status:** Set in Vercel environment variables
+
+### Local Development Database
+- **Hostname:** `localhost`
+- **Port:** `5432`
+- **Database User:** `sandbox`
+- **Database Password:** `FFQm0w5aPUMIXnGqiBKGUqzt`
+- **Database Name:** `autoprep_team`
 
 ### Key Credentials (DO NOT COMMIT)
-- **Database Password:** `FFQm0w5aPUMIXnGqiBKGUqzt`
-- **Database User:** `sandbox`
-- **Database Name:** `autoprep_team`
+- **Production Database:** Configured via Vercel environment variables (POSTGRES_URL)
+- **Local Database Password:** `FFQm0w5aPUMIXnGqiBKGUqzt`
+- **Local Database User:** `sandbox`
+- **Local Database Name:** `autoprep_team`
 
 ### Agent IDs (Hardcoded - Do Not Change)
 - **Pre-sales Report Agent:** `68aa4cb7ebbc5f9222a2696e`
@@ -50,7 +65,7 @@
 
 ```bash
 # ============================================
-# DATABASE CONFIGURATION
+# DATABASE CONFIGURATION (Local)
 # ============================================
 POSTGRES_URL=postgresql://sandbox:FFQm0w5aPUMIXnGqiBKGUqzt@localhost:5432/autoprep_team
 
@@ -91,14 +106,18 @@ NEXTAUTH_SECRET=generate_with_openssl_rand_-base64_32
 NEXTAUTH_URL=http://localhost:3000
 ```
 
-### Production Environment (Vercel)
+### Production Environment (Vercel with Supabase)
 
 ```bash
 # ============================================
-# DATABASE CONFIGURATION
+# DATABASE CONFIGURATION (Supabase)
 # ============================================
-POSTGRES_URL=postgresql://[user]:[password]@[host]:[port]/[database]
-# (Automatically set by Vercel Postgres)
+# Connection String Format:
+# postgresql://[user]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+#
+# This is automatically set by Vercel when connecting to Supabase
+# The pooled connection (port 6543) is used for better performance
+POSTGRES_URL=postgresql://[user]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 
 # ============================================
 # LINDY AGENT CONFIGURATION
@@ -139,8 +158,8 @@ NEXTAUTH_URL=https://team.autoprep.ai
 ### Environment Variable Usage Map
 
 | Variable | Used In | Purpose |
-|----------|---------|---------|
-| `POSTGRES_URL` | `lib/db/config.ts`, `lib/db/index.ts` | Database connection string |
+|----------|---------|---------| 
+| `POSTGRES_URL` | `lib/db/config.ts`, `lib/db/index.ts` | Database connection string (Supabase in production) |
 | `LINDY_PRESALES_AGENT_ID` | `lib/lindy.ts` | Pre-sales report agent identifier |
 | `LINDY_SLIDES_AGENT_ID` | `lib/lindy.ts` | Slides generation agent identifier |
 | `LINDY_PRESALES_WEBHOOK_URL` | `app/api/lindy/presales-report/route.ts` | Webhook to trigger pre-sales agent |
@@ -148,713 +167,371 @@ NEXTAUTH_URL=https://team.autoprep.ai
 | `LINDY_PRESALES_WEBHOOK_SECRET` | `app/api/lindy/presales-report/route.ts` | Authentication for pre-sales webhook |
 | `LINDY_SLIDES_WEBHOOK_SECRET` | `app/api/lindy/slides/route.ts` | Authentication for slides webhook |
 | `NEXT_PUBLIC_APP_URL` | `app/api/lindy/presales-report/route.ts`, `app/api/lindy/slides/route.ts` | Application base URL (public) |
-| `LINDY_CALLBACK_URL` | `app/api/lindy/presales-report/route.ts`, `app/api/lindy/slides/route.ts` | Webhook callback URL for Lindy agents |
-| `GOOGLE_CLIENT_ID` | `app/api/auth/google/route.ts`, `app/api/calendar/sync/route.ts` | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | `app/api/auth/google/route.ts`, `app/api/calendar/sync/route.ts` | Google OAuth client secret |
-| `MICROSOFT_CLIENT_ID` | `app/api/auth/outlook/route.ts` | Microsoft OAuth client ID |
-| `MICROSOFT_CLIENT_SECRET` | `app/api/auth/outlook/route.ts` | Microsoft OAuth client secret |
-| `NEXTAUTH_SECRET` | NextAuth configuration | Session encryption secret |
-| `NEXTAUTH_URL` | NextAuth configuration | Application URL for NextAuth |
 
 ---
 
 ## 🗄️ Database Configuration
 
-### Connection Details
+### Production Database (Supabase)
 
-**Local Development:**
+**Connection Details:**
+- **Provider:** Supabase (PostgreSQL)
+- **Hostname:** `aws-0-us-east-1.pooler.supabase.com`
+- **Port:** `6543` (pooled connection for better performance)
+- **Database:** `postgres`
+- **Connection Method:** Environment variable `POSTGRES_URL` in Vercel
+
+**Connection String Format:**
 ```
-Host: localhost
-Port: 5432
-Username: sandbox
-Password: FFQm0w5aPUMIXnGqiBKGUqzt
-Database: autoprep_team
-Connection String: postgresql://sandbox:FFQm0w5aPUMIXnGqiBKGUqzt@localhost:5432/autoprep_team
-```
-
-**Production (Vercel):**
-- Connection string automatically provided by Vercel
-- Set in `POSTGRES_URL` environment variable
-
-### Database Schema
-
-#### Tables
-
-**1. profiles**
-```sql
-CREATE TABLE profiles (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  email VARCHAR(255) NOT NULL UNIQUE,
-  url_slug VARCHAR(255) NOT NULL UNIQUE,
-  title VARCHAR(255),
-  google_access_token TEXT,
-  google_refresh_token TEXT,
-  outlook_access_token TEXT,
-  outlook_refresh_token TEXT,
-  keyword_filter TEXT,
-  slide_template_url TEXT,
-  company_info_url TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+postgresql://[user]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 ```
 
-**2. calendar_events**
-```sql
-CREATE TABLE calendar_events (
-  id SERIAL PRIMARY KEY,
-  profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
-  event_id VARCHAR(255) NOT NULL,
-  title VARCHAR(500) NOT NULL,
-  description TEXT,
-  start_time TIMESTAMP NOT NULL,
-  end_time TIMESTAMP NOT NULL,
-  attendees JSONB,
-  source VARCHAR(50) NOT NULL, -- 'google' or 'outlook'
-  presales_report_status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
-  presales_report_url TEXT,
-  presales_report_generated_at TIMESTAMP,
-  presales_report_started_at TIMESTAMP, -- NEW: Tracks when processing started
-  slides_status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
-  slides_url TEXT,
-  slides_generated_at TIMESTAMP,
-  slides_started_at TIMESTAMP, -- NEW: Tracks when processing started
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(profile_id, event_id)
-);
+**How to Use:**
+1. The `POSTGRES_URL` is automatically set in Vercel environment variables
+2. The application reads this variable in `lib/db/config.ts`
+3. Connection pooling is handled by Supabase
+4. Fallback to mock data if database is not configured
+
+**Deployment Process:**
+1. Test locally with local PostgreSQL database
+2. Push code to GitHub
+3. Vercel automatically deploys and uses Supabase connection
+4. Verify deployment at https://team.autoprep.ai
+
+### Local Development Database
+
+**Connection Details:**
+- **Provider:** PostgreSQL
+- **Hostname:** `localhost`
+- **Port:** `5432`
+- **Database:** `autoprep_team`
+- **User:** `sandbox`
+- **Password:** `FFQm0w5aPUMIXnGqiBKGUqzt`
+
+**Connection String:**
+```
+postgresql://sandbox:FFQm0w5aPUMIXnGqiBKGUqzt@localhost:5432/autoprep_team
 ```
 
-**3. token_usage**
-```sql
-CREATE TABLE token_usage (
-  id SERIAL PRIMARY KEY,
-  profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
-  operation_type VARCHAR(100) NOT NULL, -- 'agent_run', 'presales_report', 'slides_generation'
-  tokens_used INTEGER NOT NULL,
-  lindy_agent_id VARCHAR(255),
-  event_id INTEGER,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-**4. file_uploads**
-```sql
-CREATE TABLE file_uploads (
-  id SERIAL PRIMARY KEY,
-  profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
-  file_type VARCHAR(50) NOT NULL, -- 'slide_template' or 'company_info'
-  file_name VARCHAR(255) NOT NULL,
-  file_url TEXT NOT NULL,
-  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Database Initialization
-
-**Local Development:**
+**Setup Instructions:**
 ```bash
 # Create database
 createdb -h localhost autoprep_team
 
-# Initialize schema
-psql -h localhost -U sandbox -d autoprep_team -f lib/db/schema.sql
+# Connect to database
+psql -h localhost -U sandbox -d autoprep_team
 
-# Or use the API endpoint
-curl http://localhost:3000/api/db/init
+# Run migrations (if applicable)
+# See lib/db/schema.sql for schema
 ```
 
-**Production (Vercel):**
-```bash
-# Pull environment variables
-vercel env pull .env.local
+### Database Schema
 
-# Run initialization
-bun run db:init
-```
+**Key Tables:**
+- `profiles` - User profiles with `url_slug` column for semantic URLs
+- `calendar_events` - Calendar events synced from Google/Outlook
+- `presales_reports` - Generated pre-sales reports
+- `slides` - Generated presentation slides
 
-### Key Database Functions (lib/db/index.ts)
-
-| Function | Purpose |
-|----------|---------|
-| `getProfiles()` | Fetch all user profiles |
-| `getProfileById(id)` | Fetch single profile by ID |
-| `createProfile(data)` | Create new user profile |
-| `updateProfile(id, data)` | Update profile information |
-| `getCalendarEvents(profileId)` | Fetch calendar events for profile |
-| `getEventById(eventId)` | Fetch single event by ID |
-| `updateEventPresalesStatus(eventId, status, url?)` | Update pre-sales report status |
-| `updateEventSlidesStatus(eventId, status, url?)` | Update slides status |
-| `markStalePresalesRuns()` | Mark reports > 15 min as failed |
-| `markStaleSlidesRuns()` | Mark slides > 15 min as failed |
-| `deleteRemovedCalendarEvents(profileId, source, remoteEventIds)` | Delete events not in remote calendar |
+**Key Columns:**
+- `profiles.url_slug` - Semantic URL slug (e.g., "john-smith")
+- `profiles.presales_report_started_at` - Timestamp for 15-minute timeout
+- `profiles.slides_started_at` - Timestamp for 15-minute timeout
+- `calendar_events.external_id` - ID from Google/Outlook for sync
 
 ---
 
-## 🤖 Lindy Agent Integration
+## 🔗 Lindy Agent Integration
 
-### Agent Configuration
+### Pre-sales Report Agent
 
-**Pre-sales Report Agent**
-- **Agent ID:** `68aa4cb7ebbc5f9222a2696e`
-- **Webhook URL:** `https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa`
-- **Webhook Secret:** `2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07`
-- **Purpose:** Generate PDF pre-sales reports from meeting details
-- **Input Parameters:**
-  - `attendee_email` - Email of meeting attendee
-  - `meeting_title` - Title of the meeting
-  - `meeting_date` - ISO timestamp of meeting
-  - `additional_details` - Meeting description/notes
-  - `calendar_event_id` - Database event ID for callback
-  - `webhook_url` - Callback URL for results
+**Agent ID:** `68aa4cb7ebbc5f9222a2696e`
 
-**Slides Generation Agent**
-- **Agent ID:** `68ed392b02927e7ace232732`
-- **Webhook URL:** `https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4`
-- **Webhook Secret:** `f395b62647c72da770de97f7715ee68824864b21b9a2435bdaab7004762359c5`
-- **Purpose:** Generate presentation slides from pre-sales report PDF
-- **Input Parameters:**
-  - `fileId` - File ID of pre-sales report PDF
-  - `mimeType` - File MIME type (application/pdf)
-  - `format` - Output format (Google Slides)
-  - `meeting_title` - Title of the meeting
-  - `attendee_email` - Email of meeting attendee
-  - `calendar_event_id` - Database event ID for callback
-  - `webhook_url` - Callback URL for results
+**Webhook URL:** `https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa`
 
-### Data Flow
+**Webhook Secret:** `2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07`
 
-```
-User clicks "PDF Pre-sales Report"
-    ↓
-POST /api/lindy/presales-report
-    ↓
-Set calendar_events.presales_report_status = 'processing'
-Set calendar_events.presales_report_started_at = NOW()
-    ↓
-POST to LINDY_PRESALES_WEBHOOK_URL with agent payload
-    ↓
-Lindy agent processes request (generates PDF)
-    ↓
-Lindy agent calls /api/lindy/webhook with results
-    ↓
-Update calendar_events.presales_report_status = 'completed'
-Update calendar_events.presales_report_url = pdf_url
-Update calendar_events.presales_report_generated_at = NOW()
-    ↓
-Frontend detects status change and shows "Download PDF Report"
-```
+**Trigger:** `POST /api/lindy/presales-report`
 
-### Stale Detection Logic
-
-**Problem:** Reports showing "Generating Report..." indefinitely
-
-**Solution:** Check when processing started, not when event was created
-
-```typescript
-// CORRECT: Check presales_report_started_at
-function isReportStale(event: CalendarEvent): boolean {
-  if (!event.presales_report_started_at) {
-    return false;
-  }
-  
-  const startedTime = new Date(event.presales_report_started_at).getTime();
-  const now = new Date().getTime();
-  const fifteenMinutesMs = 15 * 60 * 1000;
-  
-  return (now - startedTime) > fifteenMinutesMs;
+**Payload:**
+```json
+{
+  "profileId": 1,
+  "profileName": "John Smith",
+  "profileEmail": "john.smith@example.com",
+  "calendarEvents": [
+    {
+      "title": "Meeting with Client",
+      "start": "2025-10-23T10:00:00Z",
+      "end": "2025-10-23T11:00:00Z",
+      "description": "Discuss project requirements"
+    }
+  ]
 }
+```
 
-// INCORRECT: Don't check created_at
-// const createdTime = new Date(event.created_at).getTime(); // ❌ WRONG
+### Slides Generation Agent
+
+**Agent ID:** `68ed392b02927e7ace232732`
+
+**Webhook URL:** `https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4`
+
+**Webhook Secret:** `f395b62647c72da770de97f7715ee68824864b21b9a2435bdaab7004762359c5`
+
+**Trigger:** `POST /api/lindy/slides`
+
+**Payload:**
+```json
+{
+  "profileId": 1,
+  "profileName": "John Smith",
+  "profileEmail": "john.smith@example.com",
+  "presalesReport": "Generated report content here..."
+}
 ```
 
 ---
 
-## 🔑 OAuth Configuration
+## 🔐 OAuth Configuration
 
 ### Google OAuth Setup
 
-**Console:** https://console.cloud.google.com/
-
-**Steps:**
-1. Create new project or select existing
-2. Enable APIs:
-   - Google Calendar API
-   - Gmail API
-   - Google Drive API
-   - Google Slides API
-3. Create OAuth 2.0 credentials:
-   - Type: Web application
-   - Authorized redirect URIs:
-     - Local: `http://localhost:3000/api/auth/google/callback`
-     - Production: `https://team.autoprep.ai/api/auth/google/callback`
-4. Copy credentials to environment variables:
-   - `GOOGLE_CLIENT_ID`
-   - `GOOGLE_CLIENT_SECRET`
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project
+3. Enable Google Calendar API
+4. Create OAuth 2.0 credentials (Web application)
+5. Add authorized redirect URIs:
+   - Local: `http://localhost:3000/api/auth/callback/google`
+   - Production: `https://team.autoprep.ai/api/auth/callback/google`
+6. Copy Client ID and Client Secret to environment variables
 
 ### Microsoft/Outlook OAuth Setup
 
-**Portal:** https://portal.azure.com/
-
-**Steps:**
-1. Navigate to Azure Active Directory → App registrations
-2. Click "New registration"
-3. Configure:
-   - Name: AutoPrep Team
-   - Supported account types: Any organizational directory and personal Microsoft accounts
-   - Redirect URI (Web):
-     - Local: `http://localhost:3000/api/auth/outlook/callback`
-     - Production: `https://team.autoprep.ai/api/auth/outlook/callback`
-4. Create client secret in "Certificates & secrets"
-5. Add API permissions (Microsoft Graph):
-   - `Calendars.Read`
-   - `User.Read`
-   - `offline_access`
-6. Copy credentials to environment variables:
-   - `MICROSOFT_CLIENT_ID`
-   - `MICROSOFT_CLIENT_SECRET`
+1. Go to [Azure Portal](https://portal.azure.com)
+2. Register a new application
+3. Add platform: Web
+4. Add redirect URIs:
+   - Local: `http://localhost:3000/api/auth/callback/microsoft`
+   - Production: `https://team.autoprep.ai/api/auth/callback/microsoft`
+5. Create client secret
+6. Copy Client ID and Client Secret to environment variables
 
 ---
 
-## 📡 API Endpoints
+## 🔌 API Endpoints
 
-### Calendar Sync
+### Profile Endpoints
 
-**Endpoint:** `POST /api/calendar/sync`
-
-**Purpose:** Sync calendar events from Google or Outlook
-
-**Request Body:**
-```json
-{
-  "profile_id": 3,
-  "source": "google" // or "outlook"
-}
+**Get Profile by URL Slug:**
+```
+GET /api/profiles/slug/[slug]
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "events_synced": 15,
-  "events_deleted": 2,
-  "message": "Calendar synced successfully"
-}
+**Get Profile by ID:**
+```
+GET /api/profiles/[id]
 ```
 
-### Pre-sales Report Generation
-
-**Endpoint:** `POST /api/lindy/presales-report`
-
-**Purpose:** Trigger pre-sales report generation for a calendar event
-
-**Request Body:**
-```json
-{
-  "event_id": 123,
-  "event_title": "Sales Meeting with Acme Corp",
-  "event_description": "Initial discovery call",
-  "attendee_email": "contact@acmecorp.com"
-}
+**Create Profile:**
+```
+POST /api/profiles
+Body: { name: string, email: string }
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Pre-sales report generation started. You will be notified when it is ready.",
-  "event_id": 123,
-  "webhook_response": { ... }
-}
+### Calendar Endpoints
+
+**Sync Calendar:**
+```
+POST /api/calendar/sync
+Body: { profileId: number, provider: "google" | "outlook" }
 ```
 
-### Slides Generation
-
-**Endpoint:** `POST /api/lindy/slides`
-
-**Purpose:** Trigger slides generation from pre-sales report
-
-**Request Body:**
-```json
-{
-  "event_id": 123,
-  "event_title": "Sales Meeting with Acme Corp",
-  "event_description": "Initial discovery call",
-  "attendee_email": "contact@acmecorp.com",
-  "file_id": "pdf_file_id_from_presales_report"
-}
+**Get Calendar Events:**
+```
+GET /api/calendar/events?profileId=[id]
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Slides generation started. You will be notified when they are ready.",
-  "event_id": 123,
-  "webhook_response": { ... }
-}
-```
-
-### Webhook Callback
-
-**Endpoint:** `POST /api/lindy/webhook`
-
-**Purpose:** Receive results from Lindy agents
-
-**Request Body (from Lindy):**
-```json
-{
-  "agent_id": "68aa4cb7ebbc5f9222a2696e",
-  "calendar_event_id": 123,
-  "status": "completed",
-  "pdf_url": "https://example.com/report.pdf",
-  "error_message": null
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Webhook processed successfully"
-}
-```
-
----
-
-## 🔗 Webhook Configuration
-
-### Webhook Flow
-
-1. **Trigger:** User clicks "PDF Pre-sales Report" button
-2. **Request:** Frontend sends POST to `/api/lindy/presales-report`
-3. **Processing:** Backend sets status to 'processing' and calls Lindy webhook
-4. **Agent Work:** Lindy agent generates PDF (async)
-5. **Callback:** Lindy agent calls `/api/lindy/webhook` with results
-6. **Update:** Backend updates database with PDF URL and status
-7. **Display:** Frontend detects change and shows download button
-
-### Webhook URLs (Do Not Change)
+### Lindy Webhook Endpoints
 
 **Pre-sales Report Webhook:**
 ```
-URL: https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa
-Secret: 2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07
+POST /api/lindy/presales-report
 ```
 
 **Slides Generation Webhook:**
 ```
-URL: https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4
-Secret: f395b62647c72da770de97f7715ee68824864b21b9a2435bdaab7004762359c5
+POST /api/lindy/slides
 ```
+
+---
+
+## 🪝 Webhook Configuration
 
 ### Webhook Authentication
 
-All webhook calls include Bearer token authentication:
+All webhooks use HMAC-SHA256 signature verification:
 
 ```typescript
-headers: {
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${webhookSecret}`,
+const signature = req.headers['x-lindy-signature'];
+const secret = process.env.LINDY_PRESALES_WEBHOOK_SECRET;
+const body = JSON.stringify(req.body);
+const hash = crypto
+  .createHmac('sha256', secret)
+  .update(body)
+  .digest('hex');
+
+if (hash !== signature) {
+  return res.status(401).json({ error: 'Unauthorized' });
 }
 ```
+
+### Webhook Retry Logic
+
+- **Timeout:** 15 minutes (900,000 ms)
+- **Retry Trigger:** When user clicks "Try again" button
+- **Timestamp Check:** Uses `presales_report_started_at` or `slides_started_at`
 
 ---
 
 ## ✅ Deployment Checklist
 
-### Pre-Deployment
+### Pre-Deployment (Local Testing)
 
-- [ ] All environment variables set in Vercel
-- [ ] Database schema initialized
-- [ ] OAuth credentials configured
-- [ ] Lindy webhook URLs verified
-- [ ] Build passes without errors: `bun run build`
-- [ ] All tests pass: `bun run test`
+- [ ] Run `bun run build` locally
+- [ ] Verify no TypeScript errors
+- [ ] Verify no ESLint errors
+- [ ] Test all features locally
+- [ ] Check database connectivity
+- [ ] Verify environment variables are set
 
-### Environment Variables to Verify
+### Deployment Steps
 
-```bash
-# Database
-POSTGRES_URL ✓
-
-# Lindy Agents
-LINDY_PRESALES_AGENT_ID ✓
-LINDY_SLIDES_AGENT_ID ✓
-LINDY_PRESALES_WEBHOOK_URL ✓
-LINDY_SLIDES_WEBHOOK_URL ✓
-LINDY_PRESALES_WEBHOOK_SECRET ✓
-LINDY_SLIDES_WEBHOOK_SECRET ✓
-
-# Application URLs
-NEXT_PUBLIC_APP_URL ✓
-LINDY_CALLBACK_URL ✓
-
-# OAuth
-GOOGLE_CLIENT_ID ✓
-GOOGLE_CLIENT_SECRET ✓
-MICROSOFT_CLIENT_ID ✓
-MICROSOFT_CLIENT_SECRET ✓
-NEXTAUTH_SECRET ✓
-NEXTAUTH_URL ✓
-```
+1. [ ] Commit changes: `git add -A && git commit -m "message"`
+2. [ ] Push to GitHub: `git push origin main`
+3. [ ] Wait 1-2 minutes for Vercel auto-deployment
+4. [ ] Verify deployment at https://team.autoprep.ai
+5. [ ] Check Vercel logs for errors
+6. [ ] Test production features
 
 ### Post-Deployment
 
-- [ ] Test calendar sync: https://team.autoprep.ai/profile/3
-- [ ] Test pre-sales report generation
-- [ ] Test slides generation
-- [ ] Verify webhook callbacks working
-- [ ] Check database for new records
+- [ ] Verify database connection to Supabase
+- [ ] Test profile creation
+- [ ] Test URL slug routing
+- [ ] Test calendar sync
+- [ ] Test Lindy agent webhooks
 - [ ] Monitor error logs
 
 ---
 
-## 🐛 Troubleshooting
+## 🔧 Troubleshooting
 
-### Issue: "Generating Report..." shows indefinitely
+### Database Connection Issues
 
-**Cause:** Report generation started > 15 minutes ago
+**Problem:** "Cannot connect to database"
 
-**Solution:** 
-- Check `presales_report_started_at` timestamp in database
-- Verify Lindy webhook is being called
-- Check Lindy agent logs for errors
-- Click "Retry Report" button to restart
+**Solutions:**
+1. Verify `POSTGRES_URL` is set in environment variables
+2. Check Supabase connection string format
+3. Verify firewall allows connection to `aws-0-us-east-1.pooler.supabase.com:6543`
+4. Check database credentials are correct
+5. Verify database exists and is accessible
 
-**Code Location:** `app/profile/[id]/page.tsx` - `isReportStale()` function
+### Webhook Not Triggering
 
-### Issue: Calendar events not syncing
+**Problem:** Lindy agents not receiving webhook calls
 
-**Cause:** OAuth tokens expired or calendar sync failed
+**Solutions:**
+1. Verify webhook URLs are correct in environment variables
+2. Check webhook secrets match exactly
+3. Verify HMAC signature calculation is correct
+4. Check Lindy agent IDs are correct
+5. Review Vercel logs for webhook errors
 
-**Solution:**
-- Reconnect Google/Outlook calendar
-- Check OAuth token refresh logic
-- Verify calendar permissions granted
-- Check database for sync errors
+### URL Slug Not Working
 
-**Code Location:** `app/api/calendar/sync/route.ts`
+**Problem:** Profile not accessible at `/profile/[slug]`
 
-### Issue: Webhook not receiving results
+**Solutions:**
+1. Verify `url_slug` column exists in profiles table
+2. Check slug is generated correctly (lowercase, hyphens)
+3. Verify API endpoint `/api/profiles/slug/[slug]` is working
+4. Check database query returns correct profile
+5. Review Next.js routing configuration
 
-**Cause:** Webhook URL or secret incorrect
+### Build Errors
 
-**Solution:**
-- Verify `LINDY_PRESALES_WEBHOOK_URL` and `LINDY_SLIDES_WEBHOOK_URL`
-- Verify `LINDY_PRESALES_WEBHOOK_SECRET` and `LINDY_SLIDES_WEBHOOK_SECRET`
-- Check Lindy agent configuration
-- Verify callback URL is accessible
+**Problem:** `bun run build` fails
 
-**Code Location:** `app/api/lindy/presales-report/route.ts`, `app/api/lindy/slides/route.ts`
-
-### Issue: Database connection failed
-
-**Cause:** `POSTGRES_URL` not set or incorrect
-
-**Solution:**
-- Verify `POSTGRES_URL` environment variable
-- Check database is running (local) or accessible (Vercel)
-- Test connection: `psql $POSTGRES_URL`
-- Check database credentials
-
-**Code Location:** `lib/db/config.ts`, `lib/db/index.ts`
-
-### Issue: OAuth redirect URI mismatch
-
-**Cause:** Redirect URI in OAuth console doesn't match application
-
-**Solution:**
-- Update OAuth console with correct redirect URI
-- For local: `http://localhost:3000/api/auth/google/callback`
-- For production: `https://team.autoprep.ai/api/auth/google/callback`
-- Wait 5-10 minutes for changes to propagate
-
-**Code Location:** `app/api/auth/google/route.ts`, `app/api/auth/outlook/route.ts`
+**Solutions:**
+1. Check for TypeScript errors: `bun run type-check`
+2. Check for ESLint errors: `bun run lint`
+3. Verify all imports are correct
+4. Check for missing function exports
+5. Verify function signatures match usage
 
 ---
 
-## 📝 Code Standards
+## 📚 Code Standards
 
-### Naming Conventions
+### Database Functions
 
-**Database Columns:**
-- Timestamps: `{action}_at` (e.g., `created_at`, `presales_report_started_at`)
-- Status fields: `{action}_status` (e.g., `presales_report_status`)
-- URLs: `{action}_url` (e.g., `presales_report_url`)
+All database functions are in `lib/db/index.ts`:
 
-**Function Names:**
-- Getters: `get{Entity}` (e.g., `getCalendarEvents`)
-- Setters/Updates: `update{Entity}` (e.g., `updateEventPresalesStatus`)
-- Deleters: `delete{Entity}` (e.g., `deleteRemovedCalendarEvents`)
-- Checkers: `is{Condition}` or `are{Condition}` (e.g., `isReportStale`)
-
-**Variable Names:**
-- Timestamps: `{action}Time` (e.g., `startedTime`, `createdTime`)
-- Counts: `{entity}Count` (e.g., `deletedEvents`, `syncedEvents`)
-- Flags: `{action}ed` or `is{State}` (e.g., `isDatabaseConfigured`)
-
-**Status Values:**
-- Processing states: `'pending'` | `'processing'` | `'completed'` | `'failed'`
-- Calendar sources: `'google'` | `'outlook'`
-
-### Environment Variable Naming
-
-**Format:** `UPPERCASE_WITH_UNDERSCORES`
-
-**Prefixes:**
-- `LINDY_` - Lindy AI related
-- `GOOGLE_` - Google OAuth/API
-- `MICROSOFT_` - Microsoft/Outlook OAuth/API
-- `NEXTAUTH_` - NextAuth configuration
-- `NEXT_PUBLIC_` - Public (exposed to browser)
-- `POSTGRES_` - Database related
-
-### SQL Query Standards
-
-**Use Parameterized Queries:**
 ```typescript
-// ✅ CORRECT: Parameterized query
-const result = await db.query(
-  'DELETE FROM calendar_events WHERE profile_id = $1 AND source = $2',
-  [profileId, source]
-);
+// Get profile by URL slug
+export async function getProfileBySlug(slug: string): Promise<Profile | null>
 
-// ❌ INCORRECT: String interpolation
-const result = await db.query(
-  `DELETE FROM calendar_events WHERE profile_id = ${profileId}`
-);
+// Get profile by ID
+export async function getProfileById(id: number): Promise<Profile | null>
+
+// Create profile
+export async function createProfile(name: string, email: string): Promise<Profile>
+
+// Get calendar events
+export async function getCalendarEvents(profileId: number): Promise<CalendarEvent[]>
+
+// Sync calendar events
+export async function syncCalendarEvents(profileId: number, events: CalendarEvent[]): Promise<void>
 ```
 
-**Use sql Helper for Arrays:**
+### API Route Structure
+
+All API routes follow this pattern:
+
 ```typescript
-// ✅ CORRECT: Using sql() helper
-const result = await db.query(
-  sql`DELETE FROM calendar_events WHERE event_id NOT IN (${sql(remoteEventIds)})`
-);
+import { NextRequest, NextResponse } from 'next/server';
 
-// ❌ INCORRECT: Manual string concatenation
-const result = await db.query(
-  `DELETE FROM calendar_events WHERE event_id NOT IN (${remoteEventIds.join(',')})`
-);
-```
-
-### TypeScript Standards
-
-**Always Define Interfaces:**
-```typescript
-interface CalendarEvent {
-  id: number;
-  profile_id: number;
-  event_id: string;
-  title: string;
-  presales_report_status: 'pending' | 'processing' | 'completed' | 'failed';
-  presales_report_started_at?: Date;
-  // ... other fields
+export async function GET(request: NextRequest) {
+  try {
+    // Implementation
+    return NextResponse.json({ data });
+  } catch (error) {
+    console.error('Error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
 }
 ```
 
-**Use Strict Null Checks:**
-```typescript
-// ✅ CORRECT: Check for null/undefined
-if (!event.presales_report_started_at) {
-  return false;
-}
+### TypeScript Best Practices
 
-// ❌ INCORRECT: Assume value exists
-const time = event.presales_report_started_at.getTime();
-```
-
-### Documentation Standards
-
-**Add JSDoc Comments:**
-```typescript
-/**
- * Detects if a presales report generation has stalled (> 15 minutes)
- * 
- * @param event - Calendar event with presales_report_started_at timestamp
- * @returns true if report generation started > 15 minutes ago
- * 
- * @changelog
- * - 2025-10-22: Changed from checking created_at to presales_report_started_at
- *   for accurate stale detection (fixes timeout retry logic)
- */
-export function isReportStale(event: CalendarEvent): boolean {
-  // implementation
-}
-```
-
-**Add Console Logging:**
-```typescript
-// Use emoji prefixes for clarity
-console.log('📄 Starting pre-sales report generation:', { event_id, event_title });
-console.error('❌ Event not found in database:', event_id);
-console.log('✅ Pre-sales report marked as completed');
-console.warn('⚠️ Unknown agent_id:', agent_id);
-```
+- ✅ Use proper types instead of `any`
+- ✅ Export all functions from `lib/db/index.ts`
+- ✅ Use parameterized SQL queries to prevent injection
+- ✅ Convert Date objects to ISO strings in SQL
+- ✅ Use type inference in callbacks instead of explicit types
 
 ---
 
-## 📚 File Structure Reference
-
-```
-AutoPrep-Team/
-├── app/
-│   ├── api/
-│   │   ├── auth/
-│   │   │   ├── google/route.ts          # Google OAuth
-│   │   │   └── outlook/route.ts         # Outlook OAuth
-│   │   ├── calendar/
-│   │   │   └── sync/route.ts            # Calendar sync endpoint
-│   │   ├── lindy/
-│   │   │   ├── presales-report/route.ts # Pre-sales report trigger
-│   │   │   ├── slides/route.ts          # Slides generation trigger
-│   │   │   └── webhook/route.ts         # Lindy webhook callback
-│   │   ├── db/
-│   │   │   └── init/route.ts            # Database initialization
-│   │   └── health/route.ts              # Health check endpoint
-│   ├── profile/[id]/page.tsx            # Profile detail page
-│   ├── page.tsx                         # Dashboard homepage
-│   └── layout.tsx                       # Root layout
-├── lib/
-│   ├── db/
-│   │   ├── index.ts                     # Database functions
-│   │   ├── config.ts                    # Database configuration
-│   │   └── schema.sql                   # Database schema
-│   ├── lindy.ts                         # Lindy agent integration
-│   └── utils.ts                         # Utility functions
-├── components/
-│   └── ui/                              # shadcn/ui components
-├── .env                                 # Local environment variables
-├── .env.example                         # Environment variables template
-├── MASTER_AGENT_GUIDE.md               # This file
-├── CHANGELOG.md                         # Version history
-├── NAMING_CONVENTIONS.md                # Code naming standards
-└── README.md                            # Project overview
-```
-
----
-
-## 🔄 Version History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0.0 | 2025-10-22 | Initial Master Agent Guide - Consolidated all documentation |
-
----
-
-## 📞 Support
+## 📞 Support & Contact
 
 For issues or questions:
-1. Check this Master Agent Guide first
-2. Review relevant code files listed in troubleshooting
-3. Check Vercel deployment logs
-4. Review browser console for errors
-5. Check database for data consistency
+- **Email:** scottsumerford@gmail.com
+- **GitHub:** https://github.com/scottsumerford/AutoPrep-Team
+- **Production URL:** https://team.autoprep.ai
 
 ---
 
 **Last Updated:** October 22, 2025  
-**Maintained By:** AutoPrep Development Team  
-**Status:** Production Ready ✅
+**Version:** 1.1.0  
+**Status:** ✅ Production Ready
