@@ -563,7 +563,7 @@ export default function ProfilePage() {
                                       Generating...
                                     </>
                                   ) : (
-                                    'Generate'
+                                    'Generate Pre-Sales Report'
                                   )}
                                 </Button>
                               )}
@@ -615,7 +615,7 @@ export default function ProfilePage() {
                                       Generating...
                                     </>
                                   ) : (
-                                    'Generate'
+                                    'Generate Slides'
                                   )}
                                 </Button>
                               )}
