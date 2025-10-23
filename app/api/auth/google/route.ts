@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateProfile } from '@/lib/db';
+import { updateProfile, getProfileById } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -65,6 +65,12 @@ export async function GET(request: NextRequest) {
     });
     console.log('Profile updated successfully');
 
+    // Get the profile to retrieve the URL slug
+    const profile = await getProfileById(parseInt(actualProfileId));
+    if (!profile) {
+      throw new Error('Profile not found after update');
+    }
+
     // Trigger calendar sync
     try {
       console.log('Triggering calendar sync...');
@@ -88,8 +94,8 @@ export async function GET(request: NextRequest) {
       // Don't fail the OAuth flow if sync fails
     }
 
-    // Redirect back to profile page
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/profile/${actualProfileId}?synced=true`);
+    // Redirect back to profile page using URL slug
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/profile/${profile.url_slug}?synced=true`);
   } catch (error) {
     console.error('Google OAuth error:', error);
     console.error('Error details:', {

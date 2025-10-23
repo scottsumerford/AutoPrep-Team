@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { updateProfile, getProfileById } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -26,6 +27,12 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const actualProfileId = state || profileId;
 
+    if (!actualProfileId) {
+      throw new Error('Profile ID is required');
+    }
+
+    console.log('Outlook OAuth callback - Profile ID:', actualProfileId);
+
     // Exchange code for tokens
     const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
       method: 'POST',
@@ -44,24 +51,60 @@ export async function GET(request: NextRequest) {
     const tokens = await tokenResponse.json();
 
     if (tokens.error) {
+      console.error('Outlook token error:', tokens.error, tokens.error_description);
       throw new Error(tokens.error_description || tokens.error);
     }
 
-    // Update profile with access token
-    const { sql } = await import('@vercel/postgres');
-    await sql`
-      UPDATE profiles 
-      SET outlook_access_token = ${tokens.access_token},
-          outlook_refresh_token = ${tokens.refresh_token || null}
-      WHERE id = ${actualProfileId}
-    `;
+    console.log('Updating profile with Outlook tokens...');
+    // Update profile with access token using the shared database module
+    await updateProfile(parseInt(actualProfileId), {
+      outlook_access_token: tokens.access_token,
+      outlook_refresh_token: tokens.refresh_token || undefined
+    });
+    console.log('Profile updated successfully');
 
-    // Redirect back to profile page
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/profile/${actualProfileId}`);
+    // Get the profile to retrieve the URL slug
+    const profile = await getProfileById(parseInt(actualProfileId));
+    if (!profile) {
+      throw new Error('Profile not found after update');
+    }
+
+    // Trigger calendar sync
+    try {
+      console.log('Triggering calendar sync...');
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+      const syncResponse = await fetch(`${baseUrl}/api/calendar/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ profile_id: actualProfileId }),
+      });
+
+      if (syncResponse.ok) {
+        const syncData = await syncResponse.json();
+        console.log('Calendar sync successful:', syncData);
+      } else {
+        console.error('Calendar sync failed:', await syncResponse.text());
+      }
+    } catch (syncError) {
+      console.error('Error triggering calendar sync:', syncError);
+      // Don't fail the OAuth flow if sync fails
+    }
+
+    // Redirect back to profile page using URL slug
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/profile/${profile.url_slug}?synced=true`);
   } catch (error) {
     console.error('Outlook OAuth error:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
-      { error: 'Failed to authenticate with Outlook' },
+      { 
+        error: 'Failed to authenticate with Outlook',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

@@ -116,6 +116,8 @@ export default function ProfilePage() {
   const [keywordFilter, setKeywordFilter] = useState('');
   const [showGoogleDialog, setShowGoogleDialog] = useState(false);
   const [showOutlookDialog, setShowOutlookDialog] = useState(false);
+  const [showGoogleDisconnectDialog, setShowGoogleDisconnectDialog] = useState(false);
+  const [showOutlookDisconnectDialog, setShowOutlookDisconnectDialog] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -199,6 +201,48 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error('Error updating keyword filter:', error);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    if (!profile) return;
+    try {
+      const response = await fetch(`/api/profiles/${profile.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          google_access_token: undefined,
+          google_refresh_token: undefined
+        }),
+      });
+      if (response.ok) {
+        const updated = await response.json();
+        setProfile(updated);
+        setShowGoogleDisconnectDialog(false);
+      }
+    } catch (error) {
+      console.error('Error disconnecting Google:', error);
+    }
+  };
+
+  const handleDisconnectOutlook = async () => {
+    if (!profile) return;
+    try {
+      const response = await fetch(`/api/profiles/${profile.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          outlook_access_token: undefined,
+          outlook_refresh_token: undefined
+        }),
+      });
+      if (response.ok) {
+        const updated = await response.json();
+        setProfile(updated);
+        setShowOutlookDisconnectDialog(false);
+      }
+    } catch (error) {
+      console.error('Error disconnecting Outlook:', error);
     }
   };
 
@@ -304,8 +348,16 @@ export default function ProfilePage() {
                   <Label className="text-sm font-medium mb-3 block">Calendar Authentication</Label>
                   <div className="space-y-2">
                     {profile.google_access_token ? (
-                      <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                        <span className="text-sm">✓ Google Connected</span>
+                      <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded">
+                        <span className="text-sm font-medium text-green-700">✓ Google Connected</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowGoogleDisconnectDialog(true)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          Disconnect
+                        </Button>
                       </div>
                     ) : (
                       <Button
@@ -318,8 +370,16 @@ export default function ProfilePage() {
                       </Button>
                     )}
                     {profile.outlook_access_token ? (
-                      <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                        <span className="text-sm">✓ Outlook Connected</span>
+                      <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded">
+                        <span className="text-sm font-medium text-green-700">✓ Outlook Connected</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowOutlookDisconnectDialog(true)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          Disconnect
+                        </Button>
                       </div>
                     ) : (
                       <Button
@@ -473,7 +533,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Google Dialog */}
+      {/* Google Connect Dialog */}
       <AlertDialog open={showGoogleDialog} onOpenChange={setShowGoogleDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -485,7 +545,7 @@ export default function ProfilePage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction asChild>
-              <a href={`/api/auth/google?profileId=${profile.id}`}>
+              <a href={`/api/auth/google?profile_id=${profile.id}`}>
                 Connect Google
               </a>
             </AlertDialogAction>
@@ -493,7 +553,25 @@ export default function ProfilePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Outlook Dialog */}
+      {/* Google Disconnect Dialog */}
+      <AlertDialog open={showGoogleDisconnectDialog} onOpenChange={setShowGoogleDisconnectDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect Google Calendar</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to disconnect your Google Calendar? Your synced events will remain in the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDisconnectGoogle} className="bg-red-600 hover:bg-red-700">
+              Disconnect
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Outlook Connect Dialog */}
       <AlertDialog open={showOutlookDialog} onOpenChange={setShowOutlookDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -505,9 +583,27 @@ export default function ProfilePage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction asChild>
-              <a href={`/api/auth/outlook?profileId=${profile.id}`}>
+              <a href={`/api/auth/outlook?profile_id=${profile.id}`}>
                 Connect Outlook
               </a>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Outlook Disconnect Dialog */}
+      <AlertDialog open={showOutlookDisconnectDialog} onOpenChange={setShowOutlookDisconnectDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect Outlook Calendar</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to disconnect your Outlook Calendar? Your synced events will remain in the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDisconnectOutlook} className="bg-red-600 hover:bg-red-700">
+              Disconnect
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
