@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const outlookEventIds = outlookEvents.map((e: any) => e.id);
         // Delete events that no longer exist in Outlook Calendar
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const deleted = await deleteRemovedCalendarEvents(parseInt(profile_id), 'outlook', outlookEventIds);
         deletedEvents += deleted;
         

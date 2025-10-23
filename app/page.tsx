@@ -13,6 +13,7 @@ interface Profile {
   id: number;
   name: string;
   email: string;
+  url_slug: string;
   title?: string;
   created_at: string;
 }

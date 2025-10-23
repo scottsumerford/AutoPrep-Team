@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams,  } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, FileText, Presentation, Upload, Mail, Filter, RefreshCw, Download, Loader2 } from 'lucide-react';
+import { Calendar, FileText, Presentation, Mail, Filter, RefreshCw, Download, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -106,8 +106,7 @@ function areSlidesStale(event: CalendarEvent): boolean {
 
 export default function ProfilePage() {
   const params = useParams();
-  const searchParams = useSearchParams();
-  const profileSlug = params.slug as string;
+    const profileSlug = params.slug as string;
   
   const [profile, setProfile] = useState<Profile | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -219,7 +218,7 @@ export default function ProfilePage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Profile Not Found</h1>
-          <p className="text-gray-600 mb-6">The profile you're looking for doesn't exist.</p>
+          <p className="text-gray-600 mb-6">The profile you&apos;re looking for doesn&apos;t exist.</p>
           <Link href="/">
             <Button>Back to Dashboard</Button>
           </Link>
@@ -380,7 +379,7 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent>
                 {profile.google_access_token || profile.outlook_access_token ? (
-                  <CalendarView events={events} profileId={profile.id} />
+                  <CalendarView events={events} />
                 ) : (
                   <div className="text-center py-12">
                     <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -480,7 +479,7 @@ export default function ProfilePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Connect Google Calendar</AlertDialogTitle>
             <AlertDialogDescription>
-              You'll be redirected to Google to authorize calendar access.
+              You&apos;ll be redirected to Google to authorize calendar access.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -500,7 +499,7 @@ export default function ProfilePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Connect Outlook Calendar</AlertDialogTitle>
             <AlertDialogDescription>
-              You'll be redirected to Microsoft to authorize calendar access.
+              You&apos;ll be redirected to Microsoft to authorize calendar access.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -7,6 +7,7 @@ export async function POST(request: NextRequest) {
     await markStaleSlidesRuns();
 
     const body = await request.json();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { event_id, event_title, event_description, attendee_email, file_id } = body;
 
     console.log('🎬 Starting slides generation:', {

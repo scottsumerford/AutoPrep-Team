@@ -7,10 +7,10 @@ import { getProfileBySlug } from '@/lib/db';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const slug = params.slug as string;
+    const { slug } = await params;
     
     console.log('🔍 Fetching profile by slug:', slug);
     
