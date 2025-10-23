@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateEventPresalesStatus, getEventById, markStalePresalesRuns } from '@/lib/db';
 
-// Force redeploy with webhook secret
 export async function POST(request: NextRequest) {
   try {
     // Mark any stale presales runs as failed (> 15 minutes)
@@ -53,14 +52,13 @@ export async function POST(request: NextRequest) {
     console.log('🔗 Triggering Pre-sales Report Lindy agent via webhook');
     console.log('📍 Webhook URL:', webhookUrl);
 
-    // Prepare the payload for the agent
+    // Prepare the payload for the agent - matching the documented format
     const agentPayload = {
+      calendar_event_id: event_id,
+      event_title: event_title,
+      event_description: event_description || '',
       attendee_email: attendee_email,
-      meeting_title: event_title,
-      meeting_date: event.start_time || new Date().toISOString(),
-      additional_details: event_description || '',
-      webhook_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`,
-      calendar_event_id: event_id
+      webhook_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
     };
 
     console.log('📤 Sending to agent:', agentPayload);
