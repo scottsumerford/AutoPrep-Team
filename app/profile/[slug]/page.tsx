@@ -202,18 +202,14 @@ export default function ProfilePage() {
   const handleGeneratePresalesReport = async (event: CalendarEvent) => {
     setGeneratingReportId(event.id);
     try {
-      // Call the webhook directly
-      const webhookUrl = process.env.NEXT_PUBLIC_LINDY_PRESALES_WEBHOOK_URL || 'https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa';
-      const webhookSecret = process.env.NEXT_PUBLIC_LINDY_PRESALES_WEBHOOK_SECRET || '2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07';
-      
-      const response = await fetch(webhookUrl, {
+      // Call the API endpoint (which handles webhook authentication server-side)
+      const response = await fetch('/api/lindy/presales-report', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Webhook-Secret': webhookSecret,
         },
         body: JSON.stringify({
-          calendar_event_id: event.event_id,
+          event_id: event.event_id,
           event_title: event.title,
           event_description: event.description || '',
           attendee_email: profile?.email || '',
@@ -241,18 +237,14 @@ export default function ProfilePage() {
   const handleGenerateSlides = async (event: CalendarEvent) => {
     setGeneratingSlidesId(event.id);
     try {
-      // Call the webhook directly
-      const webhookUrl = process.env.NEXT_PUBLIC_LINDY_SLIDES_WEBHOOK_URL || 'https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4';
-      const webhookSecret = process.env.NEXT_PUBLIC_LINDY_SLIDES_WEBHOOK_SECRET || 'f395b62647c72da770de97f7715ee68824864b21b9a2435bdaab7004762359c5';
-      
-      const response = await fetch(webhookUrl, {
+      // Call the API endpoint (which handles webhook authentication server-side)
+      const response = await fetch('/api/lindy/slides', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Webhook-Secret': webhookSecret,
         },
         body: JSON.stringify({
-          calendar_event_id: event.event_id,
+          event_id: event.event_id,
           event_title: event.title,
           event_description: event.description || '',
           attendee_email: profile?.email || '',
