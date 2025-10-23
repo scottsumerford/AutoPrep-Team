@@ -36,6 +36,8 @@ Added the following to the profile page component:
 
 **Git Commits:**
 - `f89763b` - fix: add Generate Pre-Sales Report and Generate Slides buttons to profile page
+- `b33fae1` - docs: update CHANGELOG with missing Generate buttons fix
+- `2f1b6a9` - docs: add comprehensive fix summary for missing Generate buttons
 
 **Testing:**
 ✅ Verified on production site (https://team.autoprep.ai/profile/north-texas-shutters):
@@ -48,8 +50,6 @@ Added the following to the profile page component:
 Users can now generate pre-sales reports and slides directly from the profile page by clicking the "Generate" button next to each calendar event.
 
 ---
-
-# Changelog
 
 ## [October 22, 2025] - 11:16 PM (America/Chicago)
 
