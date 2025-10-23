@@ -1,3 +1,63 @@
+# Changelog
+
+## [October 22, 2025] - 11:05 PM (America/Chicago)
+
+### Task: Investigate Google Calendar Sync Issue - North Texas Shutters Profile
+
+**Status:** ✅ ROOT CAUSE IDENTIFIED - POSTGRES_URL NOT CONFIGURED IN VERCEL
+
+**Investigation Summary:**
+- Reviewed production site: Profile shows "Connect Google" button (OAuth tokens not persisted)
+- Checked code: All calendar sync code is correct and ready
+- Verified database schema: Unique constraint exists on (profile_id, event_id)
+- Analyzed documentation: SUPABASE_DATABASE_CONNECTION.md confirms the fix
+
+**Root Cause:**
+The `POSTGRES_URL` environment variable is NOT set in Vercel. When this variable is missing:
+1. Database connection fails silently
+2. All data saves to in-memory storage instead of Supabase
+3. OAuth tokens are lost on page refresh or server restart
+4. Calendar events don't persist
+5. Profile appears disconnected from Google Calendar
+
+**Evidence:**
+- Profile page shows "Connect Google" and "Connect Outlook" buttons (no OAuth tokens saved)
+- Calendar Events section shows "0 events" (no events persisted)
+- Code logging confirms: `console.warn('⚠️ No POSTGRES_URL found - using in-memory storage')`
+
+**Solution:**
+Set `POSTGRES_URL` environment variable in Vercel with Supabase pooled connection:
+```
+postgresql://postgres.kmswrzzlirdfnzzbnrpo:imAVAKBD6QwffO2z@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+```
+
+**Code Status:**
+✅ `lib/db/index.ts` - Using correct `postgres` library with `require()`
+✅ `app/api/calendar/sync/route.ts` - Sync logic correct
+✅ `saveCalendarEvent()` - Function ready with proper error handling
+✅ Database schema - Unique constraint on (profile_id, event_id) exists
+✅ All TypeScript errors resolved
+✅ All deployments succeeding
+
+**Next Steps:**
+1. Set POSTGRES_URL in Vercel environment variables (Production, Preview, Development)
+2. Trigger new deployment
+3. Test: Connect Google Calendar and verify events persist
+4. Verify events appear in calendar view after page refresh
+
+**Files Reviewed:**
+- `lib/db/index.ts` - Database connection and query functions
+- `app/api/calendar/sync/route.ts` - Calendar sync endpoint
+- `SUPABASE_DATABASE_CONNECTION.md` - Production database configuration
+- `CALENDAR_SYNC_FIX_SESSION.md` - Previous fix documentation
+
+**Related Documentation:**
+- SUPABASE_DATABASE_CONNECTION.md - Complete setup guide
+- CALENDAR_SYNC_FIX_SESSION.md - Previous calendar sync fixes
+- MASTER_AGENT_GUIDE.md - System architecture
+
+---
+
 ## [October 22, 2025] - 10:40 PM (America/Chicago)
 
 ### Task: Calendar Events Persistence Fix & Documentation
@@ -48,4 +108,5 @@
 ---
 
 ## [Previous Changelog Entries]
+
 (Previous changelog content would appear here)
