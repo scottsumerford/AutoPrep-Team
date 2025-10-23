@@ -1,3 +1,39 @@
+## [October 23, 2025] - 12:21 AM
+
+### Task: Secure Webhook Integration - Move Secrets to Server-Side
+
+**Changes:**
+- Refactored webhook calls from client-side to server-side API endpoints
+- Removed exposure of webhook secrets via NEXT_PUBLIC_ environment variables
+- Updated handleGeneratePresalesReport to call /api/lindy/presales-report endpoint
+- Updated handleGenerateSlides to call /api/lindy/slides endpoint
+- Webhook secrets now remain server-side only in API routes
+- Improved security posture by eliminating client-side exposure of authentication details
+
+**Security Improvements:**
+- Webhook URLs and secrets no longer exposed to browser/client
+- All webhook authentication now handled server-side in API routes
+- Reduced attack surface for credential exposure
+- Maintains same user experience with proper loading states and error handling
+
+**Files Modified:**
+- `app/profile/[slug]/page.tsx` - Updated button handlers to use API endpoints
+
+**API Endpoints Used:**
+- `/api/lindy/presales-report` (POST) - Server-side pre-sales report generation
+- `/api/lindy/slides` (POST) - Server-side slides generation
+
+**Notes:**
+- API routes already had proper server-side webhook integration
+- This change completes the security refactor by removing client-side webhook calls
+- No changes to user-facing functionality or UI
+- All existing features continue to work as expected
+
+**Git Commits:**
+- `e0d1eef` - refactor: move webhook calls to server-side API endpoints for security
+
+---
+
 ## [October 22, 2025] - 11:51 PM
 ### Task: Refactor Lindy Agent Webhook Integration
 **Changes:**
