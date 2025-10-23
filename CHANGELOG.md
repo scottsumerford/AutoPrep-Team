@@ -55,6 +55,8 @@ postgresql://postgres.kmswrzzlirdfnzzbnrpo:imAVAKBD6QwffO2z@aws-1-us-east-1.pool
 - SUPABASE_DATABASE_CONNECTION.md - Complete setup guide
 - CALENDAR_SYNC_FIX_SESSION.md - Previous calendar sync fixes
 - MASTER_AGENT_GUIDE.md - System architecture
+- INVESTIGATION_REPORT_OCT22.md - Comprehensive technical analysis
+- INVESTIGATION_SUMMARY.md - Quick reference guide
 
 ---
 
