@@ -202,11 +202,18 @@ export default function ProfilePage() {
   const handleGeneratePresalesReport = async (event: CalendarEvent) => {
     setGeneratingReportId(event.id);
     try {
-      const response = await fetch('/api/lindy/presales-report', {
+      // Call the webhook directly
+      const webhookUrl = process.env.NEXT_PUBLIC_LINDY_PRESALES_WEBHOOK_URL || 'https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa';
+      const webhookSecret = process.env.NEXT_PUBLIC_LINDY_PRESALES_WEBHOOK_SECRET || '2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07';
+      
+      const response = await fetch(webhookUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Webhook-Secret': webhookSecret,
+        },
         body: JSON.stringify({
-          event_id: event.event_id,
+          calendar_event_id: event.event_id,
           event_title: event.title,
           event_description: event.description || '',
           attendee_email: profile?.email || '',
@@ -215,8 +222,12 @@ export default function ProfilePage() {
       
       if (response.ok) {
         console.log('✅ Pre-sales report generation started');
-        // Refresh events to show updated status
-        await fetchEvents();
+        // Update local state to show processing
+        setEvents(events.map(e => 
+          e.id === event.id 
+            ? { ...e, presales_report_status: 'processing', presales_report_started_at: new Date().toISOString() }
+            : e
+        ));
       } else {
         console.error('❌ Failed to generate pre-sales report');
       }
@@ -230,11 +241,18 @@ export default function ProfilePage() {
   const handleGenerateSlides = async (event: CalendarEvent) => {
     setGeneratingSlidesId(event.id);
     try {
-      const response = await fetch('/api/lindy/slides', {
+      // Call the webhook directly
+      const webhookUrl = process.env.NEXT_PUBLIC_LINDY_SLIDES_WEBHOOK_URL || 'https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4';
+      const webhookSecret = process.env.NEXT_PUBLIC_LINDY_SLIDES_WEBHOOK_SECRET || 'f395b62647c72da770de97f7715ee68824864b21b9a2435bdaab7004762359c5';
+      
+      const response = await fetch(webhookUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Webhook-Secret': webhookSecret,
+        },
         body: JSON.stringify({
-          event_id: event.event_id,
+          calendar_event_id: event.event_id,
           event_title: event.title,
           event_description: event.description || '',
           attendee_email: profile?.email || '',
@@ -243,8 +261,12 @@ export default function ProfilePage() {
       
       if (response.ok) {
         console.log('✅ Slides generation started');
-        // Refresh events to show updated status
-        await fetchEvents();
+        // Update local state to show processing
+        setEvents(events.map(e => 
+          e.id === event.id 
+            ? { ...e, slides_status: 'processing', slides_started_at: new Date().toISOString() }
+            : e
+        ));
       } else {
         console.error('❌ Failed to generate slides');
       }
@@ -546,10 +568,6 @@ export default function ProfilePage() {
                         <div className="flex gap-2 flex-wrap">
                           {event.presales_report_status && (
                             <div className="flex items-center gap-2">
-                              <FileText className="w-4 h-4" />
-                              <span className="text-xs">
-                                Report: {event.presales_report_status}
-                              </span>
                               {event.presales_report_status === 'pending' && (
                                 <Button 
                                   size="sm" 
@@ -563,9 +581,35 @@ export default function ProfilePage() {
                                       Generating...
                                     </>
                                   ) : (
-                                    'Generate Pre-Sales Report'
+                                    <>
+                                      <FileText className="w-4 h-4 mr-2" />
+                                      Generate Pre-Sales Report
+                                    </>
                                   )}
                                 </Button>
+                              )}
+                              {event.presales_report_status === 'processing' && (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  Generating Report...
+                                </div>
+                              )}
+                              {event.presales_report_status === 'completed' && event.presales_report_url && (
+                                <a
+                                  href={event.presales_report_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 hover:bg-green-100"
+                                >
+                                  <Download className="w-4 h-4" />
+                                  Download Report
+                                </a>
+                              )}
+                              {event.presales_report_status === 'failed' && (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                                  <FileText className="w-4 h-4" />
+                                  Report Failed
+                                </div>
                               )}
                               {isReportStale(event) && (
                                 <Button 
@@ -584,24 +628,10 @@ export default function ProfilePage() {
                                   )}
                                 </Button>
                               )}
-                              {event.presales_report_url && (
-                                <a
-                                  href={event.presales_report_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </a>
-                              )}
                             </div>
                           )}
                           {event.slides_status && (
                             <div className="flex items-center gap-2">
-                              <Presentation className="w-4 h-4" />
-                              <span className="text-xs">
-                                Slides: {event.slides_status}
-                              </span>
                               {event.slides_status === 'pending' && (
                                 <Button 
                                   size="sm" 
@@ -615,9 +645,35 @@ export default function ProfilePage() {
                                       Generating...
                                     </>
                                   ) : (
-                                    'Generate Slides'
+                                    <>
+                                      <Presentation className="w-4 h-4 mr-2" />
+                                      Generate Slides
+                                    </>
                                   )}
                                 </Button>
+                              )}
+                              {event.slides_status === 'processing' && (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  Generating Slides...
+                                </div>
+                              )}
+                              {event.slides_status === 'completed' && event.slides_url && (
+                                <a
+                                  href={event.slides_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 hover:bg-green-100"
+                                >
+                                  <Download className="w-4 h-4" />
+                                  Download Slides
+                                </a>
+                              )}
+                              {event.slides_status === 'failed' && (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                                  <Presentation className="w-4 h-4" />
+                                  Slides Failed
+                                </div>
                               )}
                               {areSlidesStale(event) && (
                                 <Button 
@@ -635,16 +691,6 @@ export default function ProfilePage() {
                                     'Try again'
                                   )}
                                 </Button>
-                              )}
-                              {event.slides_url && (
-                                <a
-                                  href={event.slides_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </a>
                               )}
                             </div>
                           )}
