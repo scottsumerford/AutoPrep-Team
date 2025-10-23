@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams,  } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,7 +106,9 @@ function areSlidesStale(event: CalendarEvent): boolean {
 
 export default function ProfilePage() {
   const params = useParams();
-    const profileSlug = params.slug as string;
+  const searchParams = useSearchParams();
+  const profileSlug = params.slug as string;
+  const synced = searchParams.get('synced');
   
   const [profile, setProfile] = useState<Profile | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -162,6 +164,14 @@ export default function ProfilePage() {
     fetchProfile();
   }, [fetchProfile]);
 
+  // Refresh profile when synced parameter is present (after OAuth callback)
+  useEffect(() => {
+    if (synced === 'true' && profile) {
+      console.log('🔄 Refreshing profile after OAuth sync...');
+      fetchProfile();
+    }
+  }, [synced, profile, fetchProfile]);
+
   useEffect(() => {
     if (profile) {
       fetchEvents();
@@ -175,7 +185,7 @@ export default function ProfilePage() {
       const response = await fetch('/api/calendar/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId: profile?.id }),
+        body: JSON.stringify({ profile_id: profile?.id }),
       });
       if (response.ok) {
         await fetchEvents();
