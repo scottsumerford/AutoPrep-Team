@@ -535,3 +535,672 @@ For issues or questions:
 **Last Updated:** October 22, 2025  
 **Version:** 1.1.0  
 **Status:** ✅ Production Ready
+
+---
+
+## 🚀 Vercel Deployment Guide
+
+### Vercel Project Information
+
+**Project Details:**
+- **Project Name:** AutoPrep-Team
+- **Project URL:** https://vercel.com/scottsumerford/autoprep-team
+- **Production Domain:** https://team.autoprep.ai
+- **GitHub Repository:** https://github.com/scottsumerford/AutoPrep-Team
+- **Framework:** Next.js 15.5.3
+
+### Vercel CLI Setup
+
+#### Installation
+
+```bash
+# Install Vercel CLI globally
+npm install -g vercel
+# or with bun
+bun add -g vercel
+```
+
+#### Authentication
+
+```bash
+# Login to Vercel (opens browser for authentication)
+vercel login
+
+# Verify authentication
+vercel whoami
+```
+
+#### Link Project
+
+```bash
+# Link local project to Vercel
+cd /home/code/AutoPrep-Team
+vercel link
+
+# When prompted:
+# - Select "scottsumerford" as the scope
+# - Select "AutoPrep-Team" as the project
+# - Link to existing project: Yes
+```
+
+### Environment Variables in Vercel
+
+#### Setting Environment Variables via Dashboard
+
+1. **Go to Vercel Dashboard:**
+   - Navigate to: https://vercel.com/scottsumerford/autoprep-team/settings/environment-variables
+
+2. **Add POSTGRES_URL (Production Database):**
+   - Click "Add New"
+   - Name: `POSTGRES_URL`
+   - Value: `postgresql://postgres.kmswrzzlirdfnzzbnrpo:imAVAKBD6QwffO2z@aws-1-us-east-1.pooler.supabase.com:6543/postgres`
+   - Environments: Select all (Production, Preview, Development)
+   - Click "Save"
+
+3. **Add Lindy Agent Variables:**
+   - `LINDY_PRESALES_AGENT_ID=68aa4cb7ebbc5f9222a2696e`
+   - `LINDY_SLIDES_AGENT_ID=68ed392b02927e7ace232732`
+   - `LINDY_PRESALES_WEBHOOK_URL=https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa`
+   - `LINDY_SLIDES_WEBHOOK_URL=https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4`
+   - `LINDY_PRESALES_WEBHOOK_SECRET=2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07`
+   - `LINDY_SLIDES_WEBHOOK_SECRET=f395b62647c72da770de97f7715ee68824864b21b9a2435bdaab7004762359c5`
+   - `NEXT_PUBLIC_APP_URL=https://team.autoprep.ai`
+   - `LINDY_CALLBACK_URL=https://team.autoprep.ai/api/lindy/webhook`
+
+#### Setting Environment Variables via Vercel CLI
+
+```bash
+# Set POSTGRES_URL for production
+vercel env add POSTGRES_URL production
+# Paste: postgresql://postgres.kmswrzzlirdfnzzbnrpo:imAVAKBD6QwffO2z@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+
+# Set POSTGRES_URL for preview
+vercel env add POSTGRES_URL preview
+# Paste: postgresql://postgres.kmswrzzlirdfnzzbnrpo:imAVAKBD6QwffO2z@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+
+# Set POSTGRES_URL for development
+vercel env add POSTGRES_URL development
+# Paste: postgresql://postgres.kmswrzzlirdfnzzbnrpo:imAVAKBD6QwffO2z@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+
+# Set other environment variables
+vercel env add LINDY_PRESALES_AGENT_ID production
+# Paste: 68aa4cb7ebbc5f9222a2696e
+
+# Repeat for all other environment variables
+```
+
+### Deployment Methods
+
+#### Method 1: Git Push (Recommended - Auto-Deploy)
+
+This is the **preferred method** as it automatically deploys when you push to the main branch.
+
+```bash
+# 1. Make changes to code
+# 2. Test locally
+bun run build
+
+# 3. Commit changes
+git add -A
+git commit -m "feat: your feature description"
+
+# 4. Push to GitHub
+git push origin main
+
+# 5. Vercel automatically deploys (1-2 minutes)
+# 6. Verify at https://team.autoprep.ai
+```
+
+**Vercel Auto-Deploy Configuration:**
+- Vercel is configured to auto-deploy on every push to `main` branch
+- Deployments are automatic and require no manual intervention
+- Check deployment status at: https://vercel.com/scottsumerford/autoprep-team/deployments
+
+#### Method 2: Vercel CLI Deploy
+
+Use this method for manual deployments or testing.
+
+```bash
+# Deploy to production
+vercel --prod
+
+# Deploy to preview (staging)
+vercel
+
+# View deployment logs
+vercel logs
+
+# Rollback to previous deployment
+vercel rollback
+```
+
+#### Method 3: Vercel Dashboard Redeploy
+
+1. Go to: https://vercel.com/scottsumerford/autoprep-team/deployments
+2. Find the deployment you want to redeploy
+3. Click the three dots (...) menu
+4. Click "Redeploy"
+5. Wait for deployment to complete
+
+### Deployment Workflow (Step-by-Step)
+
+#### Complete Deployment Process
+
+```bash
+# ============================================
+# STEP 1: Make Code Changes
+# ============================================
+cd /home/code/AutoPrep-Team
+# Edit files as needed
+
+# ============================================
+# STEP 2: Test Build Locally
+# ============================================
+bun run build
+# ✅ Must complete with exit code 0
+# ✅ No TypeScript errors
+# ✅ No ESLint errors
+
+# ============================================
+# STEP 3: Run Development Server
+# ============================================
+bun run dev
+# ✅ Test features at http://localhost:3000
+# ✅ Verify all functionality works
+# ✅ Check browser console for errors
+
+# ============================================
+# STEP 4: Commit Changes
+# ============================================
+git add -A
+git commit -m "feat: descriptive commit message"
+# Format: type(scope): description
+# Types: feat, fix, docs, style, refactor, test, chore
+
+# ============================================
+# STEP 5: Push to GitHub
+# ============================================
+git push origin main
+# ✅ Vercel auto-deploys automatically
+
+# ============================================
+# STEP 6: Verify Deployment
+# ============================================
+# Wait 1-2 minutes for Vercel to deploy
+# Check: https://vercel.com/scottsumerford/autoprep-team/deployments
+# Verify: https://team.autoprep.ai
+
+# ============================================
+# STEP 7: Test Production
+# ============================================
+# Test all features on production URL
+# Check browser console for errors
+# Verify database connectivity
+# Test Lindy agent webhooks
+```
+
+### Monitoring Deployments
+
+#### Check Deployment Status
+
+```bash
+# View all deployments
+vercel list
+
+# View specific deployment details
+vercel inspect [deployment-url]
+
+# View deployment logs
+vercel logs [deployment-url]
+```
+
+#### Vercel Dashboard Monitoring
+
+1. **Deployments Tab:** https://vercel.com/scottsumerford/autoprep-team/deployments
+   - Shows all deployment history
+   - Click on any deployment to see details
+   - View build logs and errors
+
+2. **Settings Tab:** https://vercel.com/scottsumerford/autoprep-team/settings
+   - Environment variables
+   - Domains and SSL
+   - Git integration settings
+
+3. **Analytics Tab:** https://vercel.com/scottsumerford/autoprep-team/analytics
+   - Performance metrics
+   - Request analytics
+   - Error tracking
+
+---
+
+## 🐙 GitHub Deployment Guide
+
+### GitHub Repository Information
+
+**Repository Details:**
+- **Repository URL:** https://github.com/scottsumerford/AutoPrep-Team
+- **Owner:** scottsumerford
+- **Branch:** main (production)
+- **Visibility:** Private
+
+### GitHub CLI Setup
+
+#### Installation
+
+```bash
+# Install GitHub CLI
+# macOS with Homebrew
+brew install gh
+
+# Linux
+sudo apt-get install gh
+
+# Windows with Chocolatey
+choco install gh
+```
+
+#### Authentication
+
+```bash
+# Login to GitHub
+gh auth login
+
+# When prompted:
+# - Select "GitHub.com"
+# - Select "HTTPS"
+# - Select "Paste an authentication token"
+# - Paste your GitHub Personal Access Token
+
+# Verify authentication
+gh auth status
+```
+
+### GitHub Personal Access Token
+
+#### Creating a Personal Access Token
+
+1. **Go to GitHub Settings:**
+   - Navigate to: https://github.com/settings/tokens
+
+2. **Create New Token:**
+   - Click "Generate new token" → "Generate new token (classic)"
+   - Token name: `AutoPrep-Team-Deployment`
+   - Expiration: 90 days (or as needed)
+
+3. **Select Scopes:**
+   - ✅ `repo` (Full control of private repositories)
+   - ✅ `workflow` (Update GitHub Action workflows)
+   - ✅ `read:user` (Read user profile data)
+
+4. **Generate and Save:**
+   - Click "Generate token"
+   - **IMPORTANT:** Copy the token immediately (you won't see it again)
+   - Store in `.env.local` (NOT committed to git):
+     ```bash
+     GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+     ```
+
+#### Using GitHub Token with CLI
+
+```bash
+# Set token in environment
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Or add to .env.local
+echo "GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx" >> .env.local
+
+# Verify token works
+gh auth status
+```
+
+### Git Workflow for Deployment
+
+#### Standard Git Workflow
+
+```bash
+# ============================================
+# STEP 1: Create Feature Branch (Optional)
+# ============================================
+git checkout -b feature/your-feature-name
+
+# ============================================
+# STEP 2: Make Changes
+# ============================================
+# Edit files as needed
+
+# ============================================
+# STEP 3: Stage Changes
+# ============================================
+git add -A
+# Or add specific files
+git add path/to/file.ts
+
+# ============================================
+# STEP 4: Commit Changes
+# ============================================
+git commit -m "type(scope): description"
+
+# Commit message format:
+# feat(profile): add URL slug-based routing
+# fix(database): correct connection string
+# docs(guide): update deployment instructions
+# style(code): format TypeScript files
+# refactor(api): simplify webhook handling
+# test(unit): add profile tests
+# chore(deps): update dependencies
+
+# ============================================
+# STEP 5: Push to GitHub
+# ============================================
+git push origin main
+# Or push feature branch
+git push origin feature/your-feature-name
+
+# ============================================
+# STEP 6: Create Pull Request (Optional)
+# ============================================
+gh pr create --title "Your PR Title" --body "Description"
+
+# ============================================
+# STEP 7: Merge to Main
+# ============================================
+# Via GitHub CLI
+gh pr merge [PR-NUMBER] --merge
+
+# Or merge locally
+git checkout main
+git merge feature/your-feature-name
+git push origin main
+```
+
+### GitHub CLI Commands for Deployment
+
+```bash
+# View repository information
+gh repo view
+
+# List all branches
+gh repo list
+
+# View recent commits
+gh api repos/scottsumerford/AutoPrep-Team/commits
+
+# Create a release
+gh release create v1.1.0 --title "Version 1.1.0" --notes "Release notes here"
+
+# View deployment status
+gh api repos/scottsumerford/AutoPrep-Team/deployments
+
+# View pull requests
+gh pr list
+
+# View issues
+gh issue list
+```
+
+---
+
+## 📋 Complete Build, Test, and Deploy Checklist
+
+### Pre-Deployment Checklist
+
+**Local Environment:**
+- [ ] All code changes completed
+- [ ] `.env.local` has all required variables
+- [ ] No uncommitted changes (except `.env.local`)
+
+**Code Quality:**
+- [ ] Run `bun run lint` - No ESLint errors
+- [ ] Run `bun run type-check` - No TypeScript errors
+- [ ] Run `bun run build` - Build succeeds with exit code 0
+
+**Testing:**
+- [ ] Run `bun run dev` - Dev server starts without errors
+- [ ] Test all modified features locally
+- [ ] Check browser console - No errors or warnings
+- [ ] Test database connectivity
+- [ ] Test API endpoints with curl or Postman
+
+**Git:**
+- [ ] Review all changes: `git diff`
+- [ ] Stage changes: `git add -A`
+- [ ] Verify staged changes: `git status`
+
+### Deployment Checklist
+
+**Before Pushing:**
+- [ ] Commit message is descriptive and follows format
+- [ ] All tests pass locally
+- [ ] Build completes successfully
+- [ ] No console errors in dev server
+
+**Push to GitHub:**
+- [ ] Run: `git push origin main`
+- [ ] Verify push succeeded: `git log --oneline -1`
+- [ ] Check GitHub: https://github.com/scottsumerford/AutoPrep-Team/commits/main
+
+**Vercel Deployment:**
+- [ ] Wait 1-2 minutes for Vercel to detect push
+- [ ] Check deployments: https://vercel.com/scottsumerford/autoprep-team/deployments
+- [ ] Verify deployment status is "Ready"
+- [ ] Check build logs for errors
+
+**Post-Deployment Verification:**
+- [ ] Visit https://team.autoprep.ai
+- [ ] Test all modified features
+- [ ] Check browser console - No errors
+- [ ] Verify database connectivity
+- [ ] Test API endpoints
+- [ ] Monitor error logs for 5-10 minutes
+
+### Rollback Procedure
+
+If deployment has issues:
+
+```bash
+# Option 1: Rollback via Vercel Dashboard
+# 1. Go to https://vercel.com/scottsumerford/autoprep-team/deployments
+# 2. Find the previous working deployment
+# 3. Click three dots (...) → "Promote to Production"
+
+# Option 2: Rollback via Vercel CLI
+vercel rollback
+
+# Option 3: Revert Git Commit
+git revert HEAD
+git push origin main
+# Vercel will auto-deploy the reverted code
+```
+
+---
+
+## 🔐 Credential Management
+
+### Storing Credentials Securely
+
+**DO NOT commit credentials to GitHub:**
+
+```bash
+# ❌ WRONG - Never commit .env
+git add .env
+git commit -m "add env file"
+
+# ✅ CORRECT - Use .env.local (in .gitignore)
+echo "GITHUB_TOKEN=ghp_xxxx" >> .env.local
+echo "VERCEL_TOKEN=xxxx" >> .env.local
+```
+
+**Credential Storage Locations:**
+
+| Credential | Storage | Visibility |
+|-----------|---------|-----------|
+| `POSTGRES_URL` | Vercel Dashboard | Production only |
+| `LINDY_*` | Vercel Dashboard | Production only |
+| `GITHUB_TOKEN` | `.env.local` | Local only (gitignored) |
+| `VERCEL_TOKEN` | `.env.local` | Local only (gitignored) |
+
+### .gitignore Configuration
+
+Verify `.gitignore` includes:
+
+```bash
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Vercel
+.vercel
+
+# Dependencies
+node_modules
+.bun
+
+# Build output
+.next
+dist
+build
+
+# IDE
+.vscode
+.idea
+*.swp
+```
+
+---
+
+## 🚨 Troubleshooting Deployment Issues
+
+### Build Fails Locally
+
+**Problem:** `bun run build` fails
+
+**Solutions:**
+```bash
+# 1. Check for TypeScript errors
+bun run type-check
+
+# 2. Check for ESLint errors
+bun run lint
+
+# 3. Clear cache and rebuild
+rm -rf .next
+bun run build
+
+# 4. Check Node version
+node --version  # Should be 18+
+
+# 5. Reinstall dependencies
+rm -rf node_modules
+bun install
+bun run build
+```
+
+### Vercel Deployment Fails
+
+**Problem:** Deployment fails on Vercel
+
+**Solutions:**
+1. Check Vercel build logs: https://vercel.com/scottsumerford/autoprep-team/deployments
+2. Verify environment variables are set in Vercel
+3. Check for missing dependencies in `package.json`
+4. Verify `POSTGRES_URL` is correct
+5. Check for TypeScript errors in build output
+
+### Database Connection Issues in Production
+
+**Problem:** "Cannot connect to database" in production
+
+**Solutions:**
+```bash
+# 1. Verify POSTGRES_URL in Vercel
+# Go to: https://vercel.com/scottsumerford/autoprep-team/settings/environment-variables
+# Check POSTGRES_URL value
+
+# 2. Test connection string locally
+psql postgresql://postgres.kmswrzzlirdfnzzbnrpo:imAVAKBD6QwffO2z@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+
+# 3. Check Supabase status
+# Go to: https://supabase.com/dashboard
+
+# 4. Verify firewall allows connection
+# Port 6543 should be open for pooled connections
+```
+
+### Git Push Fails
+
+**Problem:** `git push origin main` fails
+
+**Solutions:**
+```bash
+# 1. Check authentication
+git config user.email
+git config user.name
+
+# 2. Verify GitHub token
+gh auth status
+
+# 3. Pull latest changes
+git pull origin main
+
+# 4. Resolve conflicts if any
+# Edit conflicting files
+git add -A
+git commit -m "resolve merge conflicts"
+git push origin main
+
+# 5. Force push (use with caution!)
+git push origin main --force-with-lease
+```
+
+---
+
+## 📞 Quick Reference Commands
+
+### Essential Commands
+
+```bash
+# ============================================
+# LOCAL DEVELOPMENT
+# ============================================
+bun install              # Install dependencies
+bun run dev              # Start dev server
+bun run build            # Build for production
+bun run lint             # Check code style
+bun run type-check       # Check TypeScript types
+
+# ============================================
+# GIT OPERATIONS
+# ============================================
+git status               # Check status
+git add -A               # Stage all changes
+git commit -m "msg"      # Commit changes
+git push origin main     # Push to GitHub
+git pull origin main     # Pull from GitHub
+git log --oneline -10    # View recent commits
+
+# ============================================
+# VERCEL OPERATIONS
+# ============================================
+vercel login             # Login to Vercel
+vercel link              # Link project
+vercel env add VAR prod  # Add environment variable
+vercel --prod            # Deploy to production
+vercel logs              # View deployment logs
+vercel rollback          # Rollback deployment
+
+# ============================================
+# GITHUB OPERATIONS
+# ============================================
+gh auth login            # Login to GitHub
+gh auth status           # Check authentication
+gh repo view             # View repository info
+gh pr list               # List pull requests
+gh release create v1.0   # Create release
+```
+
+---
+
+**Last Updated:** October 22, 2025  
+**Version:** 1.1.0  
+**Status:** ✅ Production Ready with Complete Deployment Guide
