@@ -1,5 +1,56 @@
 # Changelog
 
+## [October 22, 2025] - 11:31 PM (America/Chicago)
+
+### BUG FIX: Missing "Generate Pre-Sales Report" and "Generate Slides" Buttons
+
+**Status:** ✅ FIXED AND DEPLOYED
+
+**Issue:**
+The North Texas Shutters profile (and all profiles) were showing calendar events with "Report: pending" and "Slides: pending" status, but there were NO buttons to generate the reports or slides. Users had no way to trigger report/slides generation from the UI.
+
+**Root Cause:**
+The profile page component (`app/profile/[slug]/page.tsx`) was displaying the status text but was missing the UI buttons and handler functions to call the generation endpoints:
+- `/api/lindy/presales-report` - for generating pre-sales reports
+- `/api/lindy/slides` - for generating slides
+
+**The Fix:**
+Added the following to the profile page component:
+
+1. **New State Variables:**
+   - `generatingReportId` - tracks which event's report is being generated
+   - `generatingSlidesId` - tracks which event's slides are being generated
+
+2. **New Handler Functions:**
+   - `handleGeneratePresalesReport()` - calls `/api/lindy/presales-report` endpoint
+   - `handleGenerateSlides()` - calls `/api/lindy/slides` endpoint
+
+3. **New UI Buttons:**
+   - "Generate" button for pending pre-sales reports
+   - "Generate" button for pending slides
+   - "Try again" button for stale (>15 min) processing reports/slides
+   - Loading states with spinner animation during generation
+
+**Files Modified:**
+- `app/profile/[slug]/page.tsx` - Added buttons and handler functions
+
+**Git Commits:**
+- `f89763b` - fix: add Generate Pre-Sales Report and Generate Slides buttons to profile page
+
+**Testing:**
+✅ Verified on production site (https://team.autoprep.ai/profile/north-texas-shutters):
+- All calendar events now show "Generate" buttons for pending reports and slides
+- Buttons are clickable and functional
+- Loading states display correctly during generation
+- Events refresh after generation starts
+
+**User Impact:**
+Users can now generate pre-sales reports and slides directly from the profile page by clicking the "Generate" button next to each calendar event.
+
+---
+
+# Changelog
+
 ## [October 22, 2025] - 11:16 PM (America/Chicago)
 
 ### CRITICAL BUG FIX: OAuth Token Persistence Issue
