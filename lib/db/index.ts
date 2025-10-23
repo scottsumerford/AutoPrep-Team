@@ -308,8 +308,7 @@ export async function updateProfile(id: number, data: Partial<Profile>): Promise
     `;
 
     console.log('💾 Executing database update...');
-    const result = await sql.query(query, values);
-    const rows = result.rows;
+    const rows = await sql.unsafe(query, values);
     console.log(`✅ Profile updated successfully in database: ${rows[0]?.name}`);
     return rows[0] || null;
   } catch (error) {
