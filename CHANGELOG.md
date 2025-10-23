@@ -31,6 +31,7 @@
 
 **Git Commits:**
 - `e0d1eef` - refactor: move webhook calls to server-side API endpoints for security
+- `dcb8310` - docs: update CHANGELOG with webhook security refactor
 
 ---
 
