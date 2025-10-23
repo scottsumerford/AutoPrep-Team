@@ -29,30 +29,22 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Get webhook URL and secret from environment
-    const webhookUrl = process.env.LINDY_PRESALES_WEBHOOK_URL;
-    const webhookSecret = process.env.LINDY_PRESALES_WEBHOOK_SECRET;
+    // Get Lindy API key from environment
+    const lindy_api_key = process.env.LINDY_API_KEY;
+    const agent_id = process.env.LINDY_PRESALES_AGENT_ID || '68aa4cb7ebbc5f9222a2696e';
     
-    if (!webhookUrl) {
-      console.error('❌ Pre-sales webhook URL not configured');
+    if (!lindy_api_key) {
+      console.error('❌ Lindy API key not configured');
       return NextResponse.json({ 
         success: false, 
-        error: 'Pre-sales webhook URL not configured' 
+        error: 'Lindy API key not configured' 
       }, { status: 500 });
     }
 
-    if (!webhookSecret) {
-      console.error('❌ Pre-sales webhook secret not configured');
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Pre-sales webhook secret not configured' 
-      }, { status: 500 });
-    }
+    console.log('🔗 Triggering Pre-sales Report Lindy agent via API');
+    console.log('📍 Agent ID:', agent_id);
 
-    console.log('🔗 Triggering Pre-sales Report Lindy agent via webhook');
-    console.log('📍 Webhook URL:', webhookUrl);
-
-    // Prepare the payload for the agent - matching the documented format
+    // Prepare the payload for the agent
     const agentPayload = {
       calendar_event_id: event_id,
       event_title: event_title,
@@ -63,37 +55,40 @@ export async function POST(request: NextRequest) {
 
     console.log('📤 Sending to agent:', agentPayload);
 
-    // Call the webhook to invoke the agent
-    const webhookResponse = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${webhookSecret}`,
-      },
-      body: JSON.stringify(agentPayload)
-    });
+    // Call the Lindy API to invoke the agent
+    const agentResponse = await fetch(
+      `https://api.lindy.ai/v1/agents/${agent_id}/invoke`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lindy_api_key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ input: agentPayload })
+      }
+    );
 
-    if (!webhookResponse.ok) {
-      const errorText = await webhookResponse.text();
-      console.error('❌ Webhook failed:', {
-        status: webhookResponse.status,
+    if (!agentResponse.ok) {
+      const errorText = await agentResponse.text();
+      console.error('❌ Lindy API failed:', {
+        status: agentResponse.status,
         error: errorText
       });
       return NextResponse.json({ 
         success: false, 
-        error: `Webhook failed: ${webhookResponse.status}` 
+        error: `Lindy API failed: ${agentResponse.status}` 
       }, { status: 500 });
     }
 
-    const webhookData = await webhookResponse.json();
+    const agentData = await agentResponse.json();
     console.log('✅ Pre-sales report generation triggered successfully');
-    console.log('📊 Webhook response:', webhookData);
+    console.log('📊 Agent response:', agentData);
     
     return NextResponse.json({
       success: true,
       message: 'Pre-sales report generation started. You will be notified when it is ready.',
       event_id,
-      webhook_response: webhookData
+      agent_response: agentData
     });
   } catch (error) {
     console.error('Error generating pre-sales report:', error);
