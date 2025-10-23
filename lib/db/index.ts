@@ -527,21 +527,46 @@ export async function initializeDatabase(): Promise<void> {
     `;
     console.log('✅ Profiles table ready');
     await sql`
-      CREATE TABLE IF NOT EXISTS calendar_events (
-        id SERIAL PRIMARY KEY,
-        profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
-        event_id VARCHAR(255) NOT NULL,
-        title VARCHAR(500) NOT NULL,
-        description TEXT,
-        start_time TIMESTAMP NOT NULL,
-        end_time TIMESTAMP NOT NULL,
-        attendees JSONB,
-        source VARCHAR(50) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(profile_id, event_id)
-      )
+      await sql`
+        CREATE TABLE IF NOT EXISTS calendar_events (
+          id SERIAL PRIMARY KEY,
+          profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
+          event_id VARCHAR(255) NOT NULL,
+          title VARCHAR(500) NOT NULL,
+          description TEXT,
+          start_time TIMESTAMP NOT NULL,
+          end_time TIMESTAMP NOT NULL,
+          attendees JSONB,
+          source VARCHAR(50) NOT NULL,
+          presales_report_status VARCHAR(50) DEFAULT 'pending',
+          presales_report_url TEXT,
+          presales_report_started_at TIMESTAMP,
+          presales_report_generated_at TIMESTAMP,
+          slides_status VARCHAR(50) DEFAULT 'pending',
+          slides_url TEXT,
+          slides_started_at TIMESTAMP,
+          slides_generated_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(profile_id, event_id)
+        )
     `;
     console.log('✅ Calendar events table ready');
+
+    // Add missing columns to existing calendar_events tables
+    try {
+      await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS presales_report_status VARCHAR(50) DEFAULT 'pending'`;
+      await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS presales_report_url TEXT`;
+      await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS presales_report_started_at TIMESTAMP`;
+      await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS presales_report_generated_at TIMESTAMP`;
+      await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS slides_status VARCHAR(50) DEFAULT 'pending'`;
+      await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS slides_url TEXT`;
+      await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS slides_started_at TIMESTAMP`;
+      await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS slides_generated_at TIMESTAMP`;
+      console.log('✅ Calendar events table columns updated');
+    } catch (error) {
+      console.log('ℹ️ Calendar events columns already exist or error updating:', error instanceof Error ? error.message : 'Unknown error');
+    }
+
     
     // Create token_usage table
     await sql`
