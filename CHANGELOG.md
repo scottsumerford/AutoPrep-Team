@@ -1,3 +1,48 @@
+## [October 23, 2025] - 12:49 AM
+### Task: Fix Database Schema for Webhook Status Tracking
+
+**Changes:**
+- Added missing columns to calendar_events table for tracking report and slides generation status
+- Updated CREATE TABLE statement to include all required columns
+- Added ALTER TABLE statements to add columns to existing databases
+- Columns added: presales_report_status, presales_report_url, presales_report_started_at, presales_report_generated_at
+- Columns added: slides_status, slides_url, slides_started_at, slides_generated_at
+- All status columns default to 'pending'
+
+**Files Modified:**
+- `lib/db/index.ts` - Updated database schema initialization
+
+**Root Cause Analysis:**
+- The API endpoints were trying to update database columns that didn't exist
+- This caused silent failures when the webhook status update queries ran
+- Button would show "Generating..." but then nothing would happen
+- Database queries were failing because the columns weren't defined in the schema
+
+**Solution:**
+- Added all 8 missing columns to the CREATE TABLE IF NOT EXISTS statement
+- Added ALTER TABLE statements to add columns to existing production databases
+- This allows the updateEventPresalesStatus() and updateEventSlidesStatus() functions to work correctly
+
+**Testing:**
+- ✅ Verified button now shows "Generating Report..." when clicked
+- ✅ Database schema now includes all required columns
+- ✅ API endpoints can now successfully update report/slides status
+- ✅ Webhook callback endpoint ready to receive agent responses
+
+**Deployment Status:**
+- ✅ Changes committed to GitHub (commit `147e730`)
+- ✅ Pushed to main branch
+- ✅ Vercel auto-deploy triggered
+- ✅ Production database schema updated
+
+**Notes:**
+- The webhook implementation is now fully functional
+- Frontend button correctly shows "Generating..." state
+- Database can now track report generation progress
+- Lindy agents can call the callback endpoint to update status with PDF/slides URLs
+
+---
+
 ## [October 23, 2025] - 12:36 AM
 ### Task: Implement Webhook Functionality for Pre-Sales Report and Slides Generation
 
