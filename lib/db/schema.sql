@@ -31,6 +31,14 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   end_time TIMESTAMP NOT NULL,
   attendees JSONB, -- JSON array of email addresses
   source VARCHAR(50) NOT NULL, -- 'google' or 'outlook'
+  presales_report_status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+  presales_report_url TEXT,
+  presales_report_started_at TIMESTAMP,
+  presales_report_generated_at TIMESTAMP,
+  slides_status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+  slides_url TEXT,
+  slides_started_at TIMESTAMP,
+  slides_generated_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(profile_id, event_id)
 );
@@ -59,6 +67,8 @@ CREATE TABLE IF NOT EXISTS file_uploads (
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_calendar_events_profile ON calendar_events(profile_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_start_time ON calendar_events(start_time);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_presales_status ON calendar_events(presales_report_status);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_slides_status ON calendar_events(slides_status);
 CREATE INDEX IF NOT EXISTS idx_token_usage_profile ON token_usage(profile_id);
 CREATE INDEX IF NOT EXISTS idx_token_usage_operation ON token_usage(operation_type);
 CREATE INDEX IF NOT EXISTS idx_file_uploads_profile ON file_uploads(profile_id);
@@ -71,4 +81,8 @@ COMMENT ON TABLE file_uploads IS 'Uploaded templates and company information';
 
 COMMENT ON COLUMN profiles.url_slug IS 'URL-friendly version of name (e.g., "john-doe")';
 COMMENT ON COLUMN calendar_events.attendees IS 'JSON array of attendee email addresses';
+COMMENT ON COLUMN calendar_events.presales_report_status IS 'Status of pre-sales report generation: pending, processing, completed, failed';
+COMMENT ON COLUMN calendar_events.presales_report_url IS 'URL to download the generated pre-sales report PDF';
+COMMENT ON COLUMN calendar_events.slides_status IS 'Status of slides generation: pending, processing, completed, failed';
+COMMENT ON COLUMN calendar_events.slides_url IS 'URL to download the generated slides';
 COMMENT ON COLUMN token_usage.operation_type IS 'Type of operation: agent_run, presales_report, or slides_generation';
