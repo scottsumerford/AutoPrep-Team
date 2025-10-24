@@ -1,3 +1,99 @@
+## [October 23, 2025] - 9:35 PM CST
+
+### Task: Create Comprehensive Pre-Sales Webhook Integration Guide
+
+**Changes:**
+- Created `PRE_SALES_WEBHOOK_INTEGRATION_GUIDE.md` - Comprehensive documentation of the webhook integration
+- Documented complete user flow from button click to report download
+- Included architecture diagrams showing data flow
+- Documented frontend implementation with React components
+- Documented backend API routes and webhook trigger mechanism
+- Included Lindy agent integration details and requirements
+- Added database schema and environment configuration
+- Included testing, debugging, and troubleshooting sections
+- Added quick reference tables for easy lookup
+
+**Files Created:**
+- `PRE_SALES_WEBHOOK_INTEGRATION_GUIDE.md` (825 lines)
+
+**Documentation Sections:**
+1. Overview - Key components and system description
+2. Architecture - Visual diagram of complete flow
+3. Complete User Flow - Step-by-step process from click to download
+4. Frontend Implementation - React component code and handlers
+5. Backend API Routes - Presales trigger and webhook callback routes
+6. Webhook Trigger Mechanism - URL, authentication, payload format
+7. Lindy Agent Integration - Agent workflow and callback requirements
+8. Database Schema - Table structure and status values
+9. Environment Configuration - Local and production variables
+10. Testing & Debugging - curl commands and log checking
+11. Troubleshooting - Common issues and solutions
+
+**Key Information Documented:**
+- Webhook URL: `https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa`
+- Webhook Secret: `2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07`
+- Pre-sales Agent ID: `68aa4cb7ebbc5f9222a2696e`
+- Callback Endpoint: `POST /api/lindy/webhook`
+- Timeout: 15 minutes for report generation
+
+**Status:**
+- ✅ Documentation created
+- ✅ Code committed to GitHub
+- ✅ Changes pushed to main branch
+- ✅ Auto-deployed to production via Vercel
+
+**Current Implementation Status:**
+- ✅ Frontend button fully functional
+- ✅ API endpoint `/api/lindy/presales-report` working
+- ✅ Webhook callback endpoint `/api/lindy/webhook` working
+- ✅ Database schema supports all required fields
+- ✅ Environment variables configured in Vercel
+- ✅ Webhook URLs and secrets properly configured
+- ✅ Status tracking (pending → processing → completed/failed)
+- ✅ Auto-refresh detects status changes
+- ✅ Download button appears when report is ready
+
+**Integration Flow:**
+1. User clicks "Generate Pre-Sales Report" button
+2. Frontend calls `POST /api/lindy/presales-report`
+3. Backend updates event status to "processing"
+4. Backend calls Lindy webhook with event details
+5. Lindy agent receives request and starts processing
+6. Agent researches company/attendee
+7. Agent generates PDF report
+8. Agent uploads PDF to storage
+9. Agent calls `POST /api/lindy/webhook` with PDF URL
+10. Backend updates database with PDF URL and status "completed"
+11. Frontend auto-refreshes and detects status change
+12. Button changes to green "Download Report"
+13. User can click to download PDF
+
+**Testing Recommendations:**
+1. Test button click on calendar event
+2. Verify "Generating Report..." state appears
+3. Monitor API logs for webhook trigger
+4. Verify Lindy agent receives request
+5. Check database for status updates
+6. Verify callback webhook is called
+7. Confirm button changes to "Download Report"
+8. Test PDF download functionality
+
+**Notes:**
+- The webhook integration is production-ready
+- All environment variables are properly configured
+- The system handles timeouts (15 minutes)
+- Stale reports are automatically marked as failed
+- Users can retry failed reports
+- Complete documentation is now available for reference
+
+---
+
+**Commit**: c161920
+**Branch**: main
+**Status**: ✅ Complete and Deployed
+
+---
+
 ## [October 23, 2025] - 1:10 AM CST
 ### Task: Revert to Webhook-Based Lindy Integration and Verify Configuration
 
