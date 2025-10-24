@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateEventPresalesStatus, getEventById, markStalePresalesRuns } from '@/lib/db';
 
+/**
+ * POST /api/lindy/presales-report
+ * 
+ * Triggers the Lindy Pre-Sales Report agent to generate a report for a calendar event.
+ * Uses direct Lindy API call instead of webhook for better reliability.
+ */
 export async function POST(request: NextRequest) {
   try {
     // Mark any stale presales runs as failed (> 15 minutes)
@@ -9,7 +15,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { event_id, event_title, event_description, attendee_email } = body;
 
-    console.log('📄 [v2] Starting pre-sales report generation:', {
+    console.log('📄 [PRESALES_REPORT_V3] Starting pre-sales report generation:', {
       event_id,
       event_title,
       attendee_email
@@ -39,7 +45,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    console.log('🔗 Triggering Pre-sales Report Lindy agent via direct API');
+    console.log('🔗 [PRESALES_REPORT_V3] Triggering Pre-sales Report Lindy agent via direct API');
     console.log('📍 Agent ID:', agentId);
 
     // Prepare the payload for the agent
@@ -53,7 +59,7 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    console.log('📤 Payload:', JSON.stringify(agentPayload, null, 2));
+    console.log('📤 [PRESALES_REPORT_V3] Payload:', JSON.stringify(agentPayload, null, 2));
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -63,12 +69,12 @@ export async function POST(request: NextRequest) {
     const lindyApiKey = process.env.LINDY_API_KEY;
     if (lindyApiKey) {
       headers['Authorization'] = `Bearer ${lindyApiKey}`;
-      console.log('🔑 Using Lindy API key');
+      console.log('🔑 [PRESALES_REPORT_V3] Using Lindy API key');
     } else {
-      console.log('⚠️ No Lindy API key - will try without auth');
+      console.log('⚠️ [PRESALES_REPORT_V3] No Lindy API key - will try without auth');
     }
 
-    console.log('🌐 Calling Lindy API endpoint: https://api.lindy.ai/v1/agents/' + agentId + '/invoke');
+    console.log('🌐 [PRESALES_REPORT_V3] Calling Lindy API endpoint: https://api.lindy.ai/v1/agents/' + agentId + '/invoke');
 
     const apiResponse = await fetch(`https://api.lindy.ai/v1/agents/${agentId}/invoke`, {
       method: 'POST',
@@ -76,12 +82,12 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(agentPayload)
     });
 
-    console.log('📊 Lindy API response status:', apiResponse.status);
+    console.log('📊 [PRESALES_REPORT_V3] Lindy API response status:', apiResponse.status);
     const responseText = await apiResponse.text();
-    console.log('📊 Lindy API response body:', responseText);
+    console.log('📊 [PRESALES_REPORT_V3] Lindy API response body:', responseText);
 
     if (!apiResponse.ok) {
-      console.error('❌ Lindy API failed with status:', apiResponse.status);
+      console.error('❌ [PRESALES_REPORT_V3] Lindy API failed with status:', apiResponse.status);
       
       return NextResponse.json({ 
         success: false, 
@@ -91,8 +97,8 @@ export async function POST(request: NextRequest) {
     }
 
     const apiData = JSON.parse(responseText);
-    console.log('✅ Pre-sales report generation triggered successfully');
-    console.log('📊 API response:', apiData);
+    console.log('✅ [PRESALES_REPORT_V3] Pre-sales report generation triggered successfully');
+    console.log('📊 [PRESALES_REPORT_V3] API response:', apiData);
     
     return NextResponse.json({
       success: true,
@@ -102,7 +108,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error generating pre-sales report:', error);
+    console.error('[PRESALES_REPORT_V3] Error generating pre-sales report:', error);
     return NextResponse.json({ 
       success: false, 
       error: 'Failed to generate pre-sales report',
