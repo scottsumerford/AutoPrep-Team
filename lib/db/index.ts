@@ -528,7 +528,6 @@ export async function initializeDatabase(): Promise<void> {
     `;
     console.log('✅ Profiles table ready');
     await sql`
-      await sql`
         CREATE TABLE IF NOT EXISTS calendar_events (
           id SERIAL PRIMARY KEY,
           profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
