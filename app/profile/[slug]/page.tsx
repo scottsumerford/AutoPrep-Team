@@ -209,7 +209,7 @@ export default function ProfilePage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          event_id: event.event_id,
+          event_id: event.id,
           event_title: event.title,
           event_description: event.description || '',
           attendee_email: profile?.email || '',
@@ -244,7 +244,7 @@ export default function ProfilePage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          event_id: event.event_id,
+          event_id: event.id,
           event_title: event.title,
           event_description: event.description || '',
           attendee_email: profile?.email || '',
