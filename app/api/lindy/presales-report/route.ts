@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { event_id, event_title, event_description, attendee_email } = body;
 
-    console.log('📄 Starting pre-sales report generation:', {
+    console.log('📄 [v2] Starting pre-sales report generation:', {
       event_id,
       event_title,
       attendee_email
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    console.log('🔗 Triggering Pre-sales Report Lindy agent');
+    console.log('🔗 Triggering Pre-sales Report Lindy agent via direct API');
     console.log('📍 Agent ID:', agentId);
 
     // Prepare the payload for the agent
