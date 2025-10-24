@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    console.log('🔗 Triggering Pre-sales Report Lindy agent via direct API');
+    console.log('🔗 Triggering Pre-sales Report Lindy agent');
     console.log('📍 Agent ID:', agentId);
 
     // Prepare the payload for the agent
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    console.log('📤 Sending to Lindy API:', agentPayload);
+    console.log('📤 Payload:', JSON.stringify(agentPayload, null, 2));
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -63,10 +63,12 @@ export async function POST(request: NextRequest) {
     const lindyApiKey = process.env.LINDY_API_KEY;
     if (lindyApiKey) {
       headers['Authorization'] = `Bearer ${lindyApiKey}`;
-      console.log('🔑 Using Lindy API key for authentication');
+      console.log('🔑 Using Lindy API key');
     } else {
-      console.log('⚠️ No Lindy API key configured, attempting without authentication');
+      console.log('⚠️ No Lindy API key - will try without auth');
     }
+
+    console.log('🌐 Calling Lindy API endpoint: https://api.lindy.ai/v1/agents/' + agentId + '/invoke');
 
     const apiResponse = await fetch(`https://api.lindy.ai/v1/agents/${agentId}/invoke`, {
       method: 'POST',
@@ -75,58 +77,21 @@ export async function POST(request: NextRequest) {
     });
 
     console.log('📊 Lindy API response status:', apiResponse.status);
+    const responseText = await apiResponse.text();
+    console.log('📊 Lindy API response body:', responseText);
 
     if (!apiResponse.ok) {
-      const errorText = await apiResponse.text();
-      console.error('❌ Lindy API failed:', {
-        status: apiResponse.status,
-        error: errorText
-      });
-
-      // Try webhook as fallback
-      const webhookUrl = process.env.LINDY_PRESALES_WEBHOOK_URL;
-      const webhookSecret = process.env.LINDY_PRESALES_WEBHOOK_SECRET;
+      console.error('❌ Lindy API failed with status:', apiResponse.status);
       
-      if (webhookUrl && webhookSecret) {
-        console.log('📌 Attempting fallback to webhook...');
-        
-        const webhookPayload = {
-          calendar_event_id: event_id,
-          event_title: event_title,
-          event_description: event_description || '',
-          attendee_email: attendee_email,
-          webhook_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
-        };
-
-        const webhookResponse = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${webhookSecret}`,
-          },
-          body: JSON.stringify(webhookPayload)
-        });
-
-        if (webhookResponse.ok) {
-          const webhookData = await webhookResponse.json();
-          console.log('✅ Pre-sales report generation triggered successfully via webhook');
-          return NextResponse.json({
-            success: true,
-            message: 'Pre-sales report generation started. You will be notified when it is ready.',
-            event_id,
-            webhook_response: webhookData
-          });
-        }
-      }
-
       return NextResponse.json({ 
         success: false, 
-        error: `Lindy API failed: ${apiResponse.status}` 
+        error: `Lindy API failed: ${apiResponse.status}`,
+        details: responseText
       }, { status: 500 });
     }
 
-    const apiData = await apiResponse.json();
-    console.log('✅ Pre-sales report generation triggered successfully via Lindy API');
+    const apiData = JSON.parse(responseText);
+    console.log('✅ Pre-sales report generation triggered successfully');
     console.log('📊 API response:', apiData);
     
     return NextResponse.json({
@@ -140,7 +105,8 @@ export async function POST(request: NextRequest) {
     console.error('Error generating pre-sales report:', error);
     return NextResponse.json({ 
       success: false, 
-      error: 'Failed to generate pre-sales report' 
+      error: 'Failed to generate pre-sales report',
+      details: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }
