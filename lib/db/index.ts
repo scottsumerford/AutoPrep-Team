@@ -14,6 +14,7 @@ const sql = connectionString ? postgres(connectionString, {
 
 // Check if database is configured
 const isDatabaseConfigured = () => !!connectionString && sql !== null;
+export { isDatabaseConfigured };
 
 // Log the connection string being used (without exposing the password)
 if (process.env.POSTGRES_URL) {
