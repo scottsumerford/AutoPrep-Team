@@ -16,7 +16,9 @@ interface AirTableResponse {
  * GET /api/lindy/presales-report-status?event_id=123
  * 
  * Polls AirTable for the generated pre-sales report.
- * This endpoint checks if the report has been generated and returns the download link.
+ * This endpoint checks if the report has been generated and returns:
+ * - PDF URL (for download)
+ * - Report Content (text document version)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -94,12 +96,14 @@ export async function GET(request: NextRequest) {
     if (matchingRecord) {
       const fields = matchingRecord.fields || {};
       const reportUrl = fields['Report URL'] || fields['PDF URL'] || fields['report_url'];
+      const reportContent = fields['Report Content'] || fields['report_content'] || null;
       const status = fields['Status'] || fields['status'] || 'completed';
 
       console.log('✅ [PRESALES_STATUS] Report found in AirTable:', {
         recordId: matchingRecord.id,
         status,
-        reportUrl
+        reportUrl,
+        hasReportContent: !!reportContent
       });
 
       // Update the database with the report URL
@@ -113,6 +117,7 @@ export async function GET(request: NextRequest) {
         found: true,
         status,
         reportUrl,
+        reportContent: reportContent || null,
         recordId: matchingRecord.id
       });
     }

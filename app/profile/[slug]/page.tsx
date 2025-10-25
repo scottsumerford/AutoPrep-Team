@@ -140,6 +140,8 @@ export default function ProfilePage() {
   const [slidesPollingId, setSlidesPollingId] = useState<number | null>(null);
   const [reportTimeRemaining, setReportTimeRemaining] = useState<{ [key: number]: string }>({});
   const [slidesTimeRemaining, setSlidesTimeRemaining] = useState<{ [key: number]: string }>({});
+  const [reportContent, setReportContent] = useState<{ [key: number]: string }>({});
+  const [slidesContent, setSlidesContent] = useState<{ [key: number]: string }>({});
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -257,6 +259,13 @@ export default function ProfilePage() {
                 : e
             )
           );
+          // Store report content if available
+          if (data.reportContent) {
+            setReportContent(prev => ({
+              ...prev,
+              [reportPollingId]: data.reportContent
+            }));
+          }
           setReportPollingId(null);
         } else if (events.find(e => e.id === reportPollingId) && isReportStale(events.find(e => e.id === reportPollingId)!)) {
           console.log('⏱️ Report generation timeout - showing try again');
@@ -740,21 +749,55 @@ export default function ProfilePage() {
                                 </Button>
                               )}
                               {event.presales_report_status === 'completed' && event.presales_report_url && (
-                                <a
-                                  href={event.presales_report_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 hover:bg-green-100"
-                                >
-                                  <Download className="w-4 h-4" />
-                                  Download Report
-                                </a>
+                                <div className="flex items-center gap-2">
+                                  <a
+                                    href={event.presales_report_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 hover:bg-green-100"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                    Download PDF
+                                  </a>
+                                  {reportContent[event.id] && (
+                                    <button
+                                      onClick={() => {
+                                        const element = document.createElement('a');
+                                        const file = new Blob([reportContent[event.id]], {type: 'text/plain'});
+                                        element.href = URL.createObjectURL(file);
+                                        element.download = `report-${event.id}.txt`;
+                                        document.body.appendChild(element);
+                                        element.click();
+                                        document.body.removeChild(element);
+                                      }}
+                                      className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700 hover:bg-blue-100"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                      Download Text
+                                    </button>
+                                  )}
+                                </div>
                               )}
                               {event.presales_report_status === 'failed' && (
-                                <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                                  <FileText className="w-4 h-4" />
-                                  Report Failed
-                                </div>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleGeneratePresalesReport(event)}
+                                  disabled={generatingReportId === event.id}
+                                  className="bg-red-50 border border-red-200 text-red-700 hover:bg-red-100"
+                                >
+                                  {generatingReportId === event.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Retrying...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FileText className="w-4 h-4 mr-2" />
+                                      Try again
+                                    </>
+                                  )}
+                                </Button>
                               )}
                               {isReportStale(event) && (
                                 <Button 
