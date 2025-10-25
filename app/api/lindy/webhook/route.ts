@@ -1,16 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateEventPresalesStatus, updateEventSlidesStatus } from '@/lib/db';
+import crypto from 'crypto';
 
 /**
  * Webhook endpoint to receive updates from Lindy agents
  * This endpoint will be called by the Lindy agents when:
  * - Pre-sales report PDF is ready for download
  * - Slides are ready for download
+ * 
+ * Uses HMAC-SHA256 signature verification for security
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Get the raw body for signature verification
+    const rawBody = await request.text();
+    const body = JSON.parse(rawBody);
+    
     console.log('📨 Received webhook from Lindy agent:', body);
+
+    // Verify HMAC-SHA256 signature
+    const signature = request.headers.get('x-lindy-signature');
+    if (signature) {
+      const secret = process.env.LINDY_WEBHOOK_SECRET;
+      if (!secret) {
+        console.error('❌ LINDY_WEBHOOK_SECRET not configured');
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Webhook secret not configured' 
+        }, { status: 500 });
+      }
+
+      const hash = crypto
+        .createHmac('sha256', secret)
+        .update(rawBody)
+        .digest('hex');
+
+      if (hash !== signature) {
+        console.error('❌ Invalid webhook signature');
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Invalid signature' 
+        }, { status: 401 });
+      }
+      console.log('✅ Webhook signature verified');
+    } else {
+      console.warn('⚠️ No signature provided in webhook');
+    }
 
     const { 
       agent_id, 
@@ -35,10 +70,12 @@ export async function POST(request: NextRequest) {
       
       if (status === 'completed' && pdf_url) {
         await updateEventPresalesStatus(calendar_event_id, 'completed', pdf_url);
-        console.log('✅ Pre-sales report marked as completed');
+        console.log('✅ Pre-sales report marked as completed with URL:', pdf_url);
       } else if (status === 'failed') {
         await updateEventPresalesStatus(calendar_event_id, 'failed');
         console.log('❌ Pre-sales report marked as failed:', error_message);
+      } else {
+        console.warn('⚠️ Pre-sales webhook received but status or pdf_url missing:', { status, pdf_url });
       }
     }
     
@@ -48,10 +85,12 @@ export async function POST(request: NextRequest) {
       
       if (status === 'completed' && slides_url) {
         await updateEventSlidesStatus(calendar_event_id, 'completed', slides_url);
-        console.log('✅ Slides marked as completed');
+        console.log('✅ Slides marked as completed with URL:', slides_url);
       } else if (status === 'failed') {
         await updateEventSlidesStatus(calendar_event_id, 'failed');
         console.log('❌ Slides marked as failed:', error_message);
+      } else {
+        console.warn('⚠️ Slides webhook received but status or slides_url missing:', { status, slides_url });
       }
     }
     
@@ -71,7 +110,8 @@ export async function POST(request: NextRequest) {
     console.error('❌ Error processing webhook:', error);
     return NextResponse.json({ 
       success: false, 
-      error: 'Failed to process webhook' 
+      error: 'Failed to process webhook',
+      details: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }

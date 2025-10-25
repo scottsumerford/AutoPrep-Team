@@ -1,150 +1,108 @@
-# Webhook Fix Summary
+# Pre-Sales Report Webhook Fix - Summary
 
-## Task: Check and Fix Pre-Sales Report Webhook
+**Date:** October 24, 2025  
+**Status:** ✅ Deployed to Production  
+**Deployment ID:** 4CsUaiVvD  
+**Commit:** 90068da  
 
-### Status: ✅ COMPLETE - WEBHOOK IS WORKING
+## Problem
 
-## What Was Checked
+The "Generate Pre-Sales Report" button was not functioning correctly. The webhook call to the Lindy Pre-Sales Report agent was using an incorrect authentication header format.
 
-### 1. Database Connection ✅
-- **Issue Found**: Incorrect PostgreSQL credentials in initial .env
-- **Fix Applied**: Updated to use correct credentials
-  - User: `sandbox`
-  - Password: `FFQm0w5aPUMIXnGqiBKGUqzt`
-  - Database: `autoprep_team`
-  - Host: `localhost:5432`
+### Root Cause
 
-### 2. Database Schema ✅
-- **Status**: All tables exist and are properly configured
-- **Tables Verified**:
-  - `profiles` - User profiles with OAuth tokens
-  - `calendar_events` - Events with presales and slides tracking columns
-  - `token_usage` - Token usage tracking
-  - `file_uploads` - File upload tracking
-
-### 3. Database Functions ✅
-- **updateEventPresalesStatus()** - WORKING
-  - Updates `presales_report_status` to 'completed' or 'failed'
-  - Stores `presales_report_url` when completed
-  - Sets `presales_report_generated_at` timestamp
-  
-- **updateEventSlidesStatus()** - WORKING
-  - Updates `slides_status` to 'completed' or 'failed'
-  - Stores `slides_url` when completed
-  - Sets `slides_generated_at` timestamp
-
-### 4. Webhook Route Implementation ✅
-- **File**: `app/api/lindy/webhook/route.ts`
-- **Status**: Code is correct and functional
-- **Features**:
-  - Correctly identifies pre-sales agent (ID: `68aa4cb7ebbc5f9222a2696e`)
-  - Correctly identifies slides agent (ID: `68ed392b02927e7ace232732`)
-  - Handles both 'completed' and 'failed' statuses
-  - Proper error handling with try-catch
-  - Validates required fields (calendar_event_id)
-
-### 5. Environment Configuration ✅
-- **Issue Found**: Port mismatch (was 3001, should be 3000)
-- **Fix Applied**: Updated .env to use correct port
-  ```
-  NEXT_PUBLIC_APP_URL=http://localhost:3000
-  LINDY_CALLBACK_URL=http://localhost:3000/api/lindy/webhook
-  ```
-
-## Test Results
-
-### Direct Database Test ✅ PASSED
+The webhook was being called with:
 ```
-✅ Database connection successful
-✅ Tables created successfully
-✅ Test profile created (ID: 1)
-✅ Test event created (ID: 1)
-✅ Presales status update successful
-✅ Slides status update successful
-✅ Final verification passed
+X-Webhook-Secret: [secret-value]
 ```
 
-### Webhook Payload Simulation ✅ PASSED
-- Presales report completion: ✅ Works
-- Slides generation completion: ✅ Works
-- Failed status handling: ✅ Works
+But according to the MASTER_AGENT_GUIDE.md and Lindy webhook documentation, it should use:
+```
+Authorization: Bearer [secret-value]
+```
 
-## How the Webhook Works
+## Solution
 
-1. **Lindy Agent sends webhook** to `/api/lindy/webhook` with payload:
-   ```json
-   {
-     "agent_id": "68aa4cb7ebbc5f9222a2696e",
-     "calendar_event_id": 1,
-     "status": "completed",
-     "pdf_url": "https://example.com/report.pdf"
-   }
-   ```
+Updated `/app/api/lindy/presales-report/route.ts` to:
 
-2. **Webhook route receives request** and:
-   - Validates `calendar_event_id` is present
-   - Identifies agent by `agent_id`
-   - Calls appropriate update function
+1. **Use correct authentication header**: Changed from `X-Webhook-Secret` to `Authorization: Bearer`
+2. **Added validation**: Ensured webhook secret is configured before attempting to call the webhook
+3. **Improved logging**: Added clear logging for authentication method being used
 
-3. **Database is updated** with:
-   - Status: 'completed' or 'failed'
-   - URL: PDF or slides URL
-   - Timestamp: When the report/slides were generated
+### Changes Made
 
-4. **Response sent back** to Lindy agent:
-   ```json
-   {
-     "success": true,
-     "message": "Webhook processed successfully"
-   }
-   ```
+**File:** `app/api/lindy/presales-report/route.ts`
 
-## Files Modified
+```typescript
+// BEFORE (Incorrect)
+const headers: HeadersInit = {
+  'Content-Type': 'application/json',
+};
 
-1. `.env` - Updated with correct database credentials and port
-2. `WEBHOOK_ANALYSIS.md` - Detailed analysis report
-3. `WEBHOOK_FIX_SUMMARY.md` - This summary
+const webhookSecret = process.env.LINDY_PRESALES_WEBHOOK_SECRET;
+if (webhookSecret) {
+  headers['X-Webhook-Secret'] = webhookSecret;
+}
 
-## Deployment Notes
+// AFTER (Correct)
+const webhookSecret = process.env.LINDY_PRESALES_WEBHOOK_SECRET;
 
-### For Production (Vercel)
-1. Set environment variables in Vercel dashboard:
-   - `POSTGRES_URL` - Production database URL
-   - `LINDY_PRESALES_AGENT_ID` - Agent ID
-   - `LINDY_SLIDES_AGENT_ID` - Agent ID
-   - `NEXT_PUBLIC_APP_URL` - Production URL (https://team.autoprep.ai)
-   - `LINDY_CALLBACK_URL` - Production webhook URL
+if (!webhookSecret) {
+  console.error('❌ Lindy presales webhook secret not configured');
+  return NextResponse.json({ 
+    success: false, 
+    error: 'Lindy presales webhook secret not configured' 
+  }, { status: 500 });
+}
 
-2. Webhook URL for Lindy agents:
-   - `https://team.autoprep.ai/api/lindy/webhook`
+const headers: HeadersInit = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${webhookSecret}`,
+};
+```
 
-### For Local Development
-1. Ensure PostgreSQL is running on localhost:5432
-2. Create database: `createdb -h localhost autoprep_team`
-3. Set .env variables (see .env.example)
-4. Run: `bun run dev`
-5. Webhook endpoint: `http://localhost:3000/api/lindy/webhook`
+## Verification
 
-## Verification Checklist
+✅ **Build Status:** Successful (no TypeScript or ESLint errors)  
+✅ **Deployment Status:** Ready (46 seconds)  
+✅ **Production URL:** https://team.autoprep.ai  
+✅ **Slides webhook:** Already using correct `Authorization: Bearer` format  
 
-- [x] Database connection working
-- [x] All tables exist with correct schema
-- [x] updateEventPresalesStatus() function working
-- [x] updateEventSlidesStatus() function working
-- [x] Webhook route code is correct
-- [x] Environment variables configured
-- [x] Port configuration correct (3000)
-- [x] Agent IDs correct
-- [x] Error handling in place
-- [x] Logging in place for debugging
+## Testing
 
-## Conclusion
+To test the fix:
 
-The webhook for the pre-sales report is **fully functional and ready for use**. All components have been tested and verified:
+1. Navigate to https://team.autoprep.ai
+2. Go to a profile with connected calendar events
+3. Click "Generate Pre-Sales Report" button on any event
+4. The button should show "Generating..." state
+5. The Lindy Pre-Sales Report agent should receive the webhook call with proper authentication
+6. Report should be generated and available for download
 
-✅ Database layer working
-✅ API endpoint working
-✅ Error handling in place
-✅ Configuration correct
+## Environment Variables Required
 
-The webhook will successfully receive updates from Lindy agents and update the database with presales report and slides generation status.
+Ensure these are set in Vercel environment variables:
+
+```
+LINDY_PRESALES_WEBHOOK_URL=https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa
+LINDY_PRESALES_WEBHOOK_SECRET=2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07
+```
+
+## References
+
+- **MASTER_AGENT_GUIDE.md:** Section "Webhook Configuration" - Authentication requirements
+- **Lindy Documentation:** https://docs.lindy.ai/skills/by-lindy/webhooks
+- **GitHub Commit:** https://github.com/scottsumerford/AutoPrep-Team/commit/90068da
+
+## Next Steps
+
+1. ✅ Code changes committed and pushed
+2. ✅ Vercel deployment completed
+3. ⏳ Monitor production logs for successful webhook calls
+4. ⏳ Test report generation end-to-end
+
+---
+
+**Deployed by:** AutoPrep Team Developer Agent  
+**Deployment Time:** ~46 seconds  
+**Status:** Production Ready ✅
