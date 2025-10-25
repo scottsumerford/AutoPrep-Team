@@ -27,6 +27,8 @@
 - **Local Development:** `http://localhost:3000`
 - **Production:** `https://team.autoprep.ai`
 - **Database:** PostgreSQL on Supabase (production) or localhost:5432 (local)
+- **Vercel Project Folder:** https://vercel.com/scott-s-projects-53d26130/autoprep-team-subdomain-deployment/
+
 
 ### Production Database (Supabase)
 - **Hostname:** `aws-0-us-east-1.pooler.supabase.com`
@@ -56,6 +58,8 @@
 - **Report Generation Timeout:** 15 minutes (900,000 ms)
 - **Slides Generation Timeout:** 15 minutes (900,000 ms)
 - **Stale Detection:** Checks `presales_report_started_at` and `slides_started_at` timestamps
+
+
 
 ---
 
@@ -1155,6 +1159,184 @@ git push origin main --force-with-lease
 
 ---
 
+### Pre-Sales Report Webhook Integration Guide
+Overview
+This webhook enables external applications to automatically generate pre-sales reports when a calendar event is created. The workflow listens for incoming webhook calls and processes the event data to create comprehensive pre-sales analysis reports.
+________________________________________
+Webhook Endpoint
+POST https://api.lindy.ai/webhooks/{your-webhook-id}
+________________________________________
+Required Headers
+{
+  "Content-Type": "application/json",
+  "Authorization": "Bearer {your-api-key}"
+}
+________________________________________
+Request Payload Structure
+Minimum Required Fields
+{
+  "event_type": "calendar.event.created",
+  "event_data": {
+    "title": "Meeting with [Company Name]",
+    "start_time": "2025-10-24T14:00:00Z",
+    "end_time": "2025-10-24T15:00:00Z",
+    "attendees": [
+      {
+        "email": "contact@company.com",
+        "name": "Contact Name"
+      }
+    ],
+    "description": "Pre-sales meeting discussion",
+    "company_name": "Target Company Inc.",
+    "meeting_type": "pre_sales"
+  }
+}
+Optional Enhanced Fields
+{
+  "event_type": "calendar.event.created",
+  "event_data": {
+    "title": "Meeting with [Company Name]",
+    "start_time": "2025-10-24T14:00:00Z",
+    "end_time": "2025-10-24T15:00:00Z",
+    "attendees": [
+      {
+        "email": "contact@company.com",
+        "name": "Contact Name",
+        "role": "CTO"
+      }
+    ],
+    "description": "Pre-sales meeting discussion",
+    "company_name": "Target Company Inc.",
+    "company_domain": "company.com",
+    "meeting_type": "pre_sales",
+    "deal_value": 50000,
+    "industry": "Technology",
+    "location": "San Francisco, CA",
+    "notes": "Follow-up from initial demo"
+  }
+}
+________________________________________
+Field Descriptions
+Field	Type	Required	Description
+event_type	string	✅	Must be "calendar.event.created"
+event_data.title	string	✅	Meeting title (include company name)
+event_data.start_time	ISO 8601	✅	Meeting start time in UTC
+event_data.end_time	ISO 8601	✅	Meeting end time in UTC
+event_data.attendees	array	✅	List of meeting attendees
+event_data.attendees[].email	string	✅	Attendee email address
+event_data.attendees[].name	string	✅	Attendee full name
+event_data.company_name	string	✅	Target company name
+event_data.meeting_type	string	✅	Must be "pre_sales"
+event_data.description	string	⚪	Meeting description/agenda
+event_data.company_domain	string	⚪	Company website domain
+event_data.deal_value	number	⚪	Estimated deal value (USD)
+event_data.industry	string	⚪	Company industry
+event_data.location	string	⚪	Meeting location
+event_data.notes	string	⚪	Additional context
+________________________________________
+Response Format
+Success Response (200 OK)
+{
+  "status": "success",
+  "message": "Pre-sales report generation initiated",
+  "task_id": "68fadd49c0f99f5bfeb49769",
+  "report_url": "https://chat.lindy.ai/workspace/reports/68fadd49c0f99f5bfeb49769"
+}
+Error Response (400 Bad Request)
+{
+  "status": "error",
+  "message": "Missing required field: company_name",
+  "errors": [
+    {
+      "field": "event_data.company_name",
+      "message": "This field is required"
+    }
+  ]
+}
+________________________________________
+What the Workflow Does
+1.	Receives webhook with calendar event data
+2.	Validates required fields
+3.	Enriches data using People Data Labs (company info, attendee details)
+4.	Researches company background using Perplexity AI
+5.	Analyzes competitive landscape and market position
+6.	Generates comprehensive pre-sales report including:
+o	Company overview and financials
+o	Key decision-maker profiles
+o	Competitive analysis
+o	Recommended talking points
+o	Risk assessment
+o	Next steps and action items
+7.	Delivers report via email and stores in workspace
+________________________________________
+Example cURL Request
+curl -X POST https://api.lindy.ai/webhooks/{your-webhook-id} \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {your-api-key}" \
+  -d '{
+    "event_type": "calendar.event.created",
+    "event_data": {
+      "title": "Pre-sales Meeting with Acme Corp",
+      "start_time": "2025-10-24T14:00:00Z",
+      "end_time": "2025-10-24T15:00:00Z",
+      "attendees": [
+        {
+          "email": "john.doe@acmecorp.com",
+          "name": "John Doe",
+          "role": "VP of Engineering"
+        }
+      ],
+      "description": "Initial discovery call to discuss enterprise solution",
+      "company_name": "Acme Corp",
+      "company_domain": "acmecorp.com",
+      "meeting_type": "pre_sales",
+      "deal_value": 75000,
+      "industry": "SaaS",
+      "location": "Virtual - Zoom"
+    }
+  }'
+________________________________________
+Integration Examples
+Calendly Webhook
+Configure Calendly to send webhook on event creation:
+// Calendly webhook payload transformation
+const calendlyToPreSales = (calendlyPayload) => ({
+  event_type: "calendar.event.created",
+  event_data: {
+    title: calendlyPayload.event.name,
+    start_time: calendlyPayload.event.start_time,
+    end_time: calendlyPayload.event.end_time,
+    attendees: calendlyPayload.invitees.map(inv => ({
+      email: inv.email,
+      name: inv.name
+    })),
+    company_name: calendlyPayload.questions_and_answers
+      .find(q => q.question === "Company Name")?.answer,
+    meeting_type: "pre_sales"
+  }
+});
+Google Calendar API
+// Google Calendar event to webhook
+const googleCalToPreSales = (gcalEvent) => ({
+  event_type: "calendar.event.created",
+  event_data: {
+    title: gcalEvent.summary,
+    start_time: gcalEvent.start.dateTime,
+    end_time: gcalEvent.end.dateTime,
+    attendees: gcalEvent.attendees.map(att => ({
+      email: att.email,
+      name: att.displayName || att.email
+    })),
+    description: gcalEvent.description,
+    company_name: extractCompanyFromTitle(gcalEvent.summary),
+    meeting_type: "pre_sales",
+    location: gcalEvent.location
+  }
+});
+
+
+
+---
 ## 📞 Quick Reference Commands
 
 ### Essential Commands
