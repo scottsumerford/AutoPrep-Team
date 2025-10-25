@@ -5,7 +5,7 @@ import { updateEventPresalesStatus, getEventById, markStalePresalesRuns } from '
  * POST /api/lindy/presales-report
  * 
  * Triggers the Lindy Pre-Sales Report agent to generate a report for a calendar event.
- * Uses webhook-based integration for reliability.
+ * Uses webhook-based integration with proper authentication.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -35,13 +35,23 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Get webhook URL
+    // Get webhook URL and secret
     const webhookUrl = process.env.LINDY_PRESALES_WEBHOOK_URL;
+    const webhookSecret = process.env.LINDY_PRESALES_WEBHOOK_SECRET;
+    
     if (!webhookUrl) {
       console.error('❌ Lindy presales webhook URL not configured');
       return NextResponse.json({ 
         success: false, 
         error: 'Lindy presales webhook URL not configured' 
+      }, { status: 500 });
+    }
+
+    if (!webhookSecret) {
+      console.error('❌ Lindy presales webhook secret not configured');
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Lindy presales webhook secret not configured' 
       }, { status: 500 });
     }
 
@@ -60,15 +70,10 @@ export async function POST(request: NextRequest) {
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${webhookSecret}`,
     };
 
-    // Add webhook secret if available
-    const webhookSecret = process.env.LINDY_PRESALES_WEBHOOK_SECRET;
-    if (webhookSecret) {
-      headers['X-Webhook-Secret'] = webhookSecret;
-      console.log('🔑 [PRESALES_REPORT_WEBHOOK] Using webhook secret');
-    }
-
+    console.log('🔑 [PRESALES_REPORT_WEBHOOK] Using Authorization Bearer token for authentication');
     console.log('🌐 [PRESALES_REPORT_WEBHOOK] Calling Lindy webhook:', webhookUrl);
 
     const webhookResponse = await fetch(webhookUrl, {
