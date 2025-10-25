@@ -15,8 +15,9 @@ interface AirTableResponse {
 /**
  * GET /api/lindy/slides-status?event_id=123
  * 
- * Polls AirTable for the generated slides.
- * This endpoint checks if the slides have been generated and returns the download link.
+ * Polls for the generated slides.
+ * First checks the database, then falls back to AirTable.
+ * Returns the download link for the slides.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -30,9 +31,9 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('🔍 [SLIDES_STATUS] Checking AirTable for slides status:', eventId);
+    console.log('🔍 [SLIDES_STATUS] Checking slides status for event:', eventId);
 
-    // Get the event from database to find the associated profile
+    // Get the event from database
     const event = await getEventById(parseInt(eventId));
     
     if (!event) {
@@ -43,7 +44,22 @@ export async function GET(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Query AirTable for the slides
+    // FIRST: Check if the slides are already in the database
+    console.log('📊 [SLIDES_STATUS] Checking database for slides...');
+    if (event.slides_status === 'completed' && event.slides_url) {
+      console.log('✅ [SLIDES_STATUS] Slides found in database:', event.slides_url);
+      return NextResponse.json({
+        success: true,
+        found: true,
+        status: 'completed',
+        slidesUrl: event.slides_url,
+        source: 'database'
+      });
+    }
+
+    // SECOND: If not in database, check AirTable
+    console.log('🌐 [SLIDES_STATUS] Slides not in database, checking AirTable...');
+
     const airtableApiKey = process.env.AIRTABLE_API_KEY;
     const airtableBaseId = process.env.AIRTABLE_BASE_ID;
     const airtableTableId = process.env.AIRTABLE_TABLE_ID;
@@ -79,7 +95,7 @@ export async function GET(request: NextRequest) {
     }
 
     const airtableData = await airtableResponse.json() as AirTableResponse;
-    console.log('📊 [SLIDES_STATUS] AirTable response:', JSON.stringify(airtableData, null, 2));
+    console.log('📊 [SLIDES_STATUS] AirTable response records:', airtableData.records.length);
 
     // Search for a record matching the event ID
     const records = airtableData.records || [];
@@ -104,6 +120,7 @@ export async function GET(request: NextRequest) {
 
       // Update the database with the slides URL
       if (slidesUrl && typeof slidesUrl === 'string') {
+        console.log('💾 [SLIDES_STATUS] Updating database with slides URL from AirTable');
         await updateEventSlidesStatus(parseInt(eventId), 'completed', slidesUrl);
         console.log('✅ [SLIDES_STATUS] Database updated with slides URL');
       }
@@ -113,11 +130,12 @@ export async function GET(request: NextRequest) {
         found: true,
         status,
         slidesUrl,
-        recordId: matchingRecord.id
+        recordId: matchingRecord.id,
+        source: 'airtable'
       });
     }
 
-    console.log('⏳ [SLIDES_STATUS] Slides not yet available in AirTable');
+    console.log('⏳ [SLIDES_STATUS] Slides not yet available');
 
     return NextResponse.json({
       success: true,

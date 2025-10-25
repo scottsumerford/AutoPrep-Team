@@ -15,8 +15,9 @@ interface AirTableResponse {
 /**
  * GET /api/lindy/presales-report-status?event_id=123
  * 
- * Polls AirTable for the generated pre-sales report.
- * This endpoint checks if the report has been generated and returns:
+ * Polls for the generated pre-sales report.
+ * First checks the database, then falls back to AirTable.
+ * Returns:
  * - PDF URL (for download)
  * - Report Content (text document version)
  */
@@ -32,9 +33,9 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('🔍 [PRESALES_STATUS] Checking AirTable for report status:', eventId);
+    console.log('🔍 [PRESALES_STATUS] Checking report status for event:', eventId);
 
-    // Get the event from database to find the associated profile
+    // Get the event from database
     const event = await getEventById(parseInt(eventId));
     
     if (!event) {
@@ -45,7 +46,23 @@ export async function GET(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Query AirTable for the report
+    // FIRST: Check if the report is already in the database
+    console.log('📊 [PRESALES_STATUS] Checking database for report...');
+    if (event.presales_report_status === 'completed' && event.presales_report_url) {
+      console.log('✅ [PRESALES_STATUS] Report found in database:', event.presales_report_url);
+      return NextResponse.json({
+        success: true,
+        found: true,
+        status: 'completed',
+        reportUrl: event.presales_report_url,
+        reportContent: null,
+        source: 'database'
+      });
+    }
+
+    // SECOND: If not in database, check AirTable
+    console.log('🌐 [PRESALES_STATUS] Report not in database, checking AirTable...');
+
     const airtableApiKey = process.env.AIRTABLE_API_KEY;
     const airtableBaseId = process.env.AIRTABLE_BASE_ID;
     const airtableTableId = process.env.AIRTABLE_TABLE_ID;
@@ -81,7 +98,7 @@ export async function GET(request: NextRequest) {
     }
 
     const airtableData = await airtableResponse.json() as AirTableResponse;
-    console.log('📊 [PRESALES_STATUS] AirTable response:', JSON.stringify(airtableData, null, 2));
+    console.log('📊 [PRESALES_STATUS] AirTable response records:', airtableData.records.length);
 
     // Search for a record matching the event ID
     const records = airtableData.records || [];
@@ -108,6 +125,7 @@ export async function GET(request: NextRequest) {
 
       // Update the database with the report URL
       if (reportUrl && typeof reportUrl === 'string') {
+        console.log('💾 [PRESALES_STATUS] Updating database with report URL from AirTable');
         await updateEventPresalesStatus(parseInt(eventId), 'completed', reportUrl);
         console.log('✅ [PRESALES_STATUS] Database updated with report URL');
       }
@@ -118,11 +136,12 @@ export async function GET(request: NextRequest) {
         status,
         reportUrl,
         reportContent: reportContent || null,
-        recordId: matchingRecord.id
+        recordId: matchingRecord.id,
+        source: 'airtable'
       });
     }
 
-    console.log('⏳ [PRESALES_STATUS] Report not yet available in AirTable');
+    console.log('⏳ [PRESALES_STATUS] Report not yet available');
 
     return NextResponse.json({
       success: true,
