@@ -54,6 +54,14 @@
 - **Pre-sales Report Agent:** `68aa4cb7ebbc5f9222a2696e`
 - **Slides Generation Agent:** `68ed392b02927e7ace232732`
 
+### Webhook URLs for the Agents
+- LINDY_PRESALES_WEBHOOK_URL=https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa
+- LINDY_SLIDES_WEBHOOK_URL=https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4
+
+### Webhook Secrets - Used to authenticate webhook calls
+- LINDY_PRESALES_WEBHOOK_SECRET=2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07
+- LINDY_SLIDES_WEBHOOK_SECRET=f395b62647c72da770de97f7715ee68824864b21b9a2435bdaab7004762359c5
+
 ### Timeout Configuration
 - **Report Generation Timeout:** 15 minutes (900,000 ms)
 - **Slides Generation Timeout:** 15 minutes (900,000 ms)
@@ -1159,21 +1167,32 @@ git push origin main --force-with-lease
 
 ---
 
-### Pre-Sales Report Webhook Integration Guide
-Overview
-This webhook enables external applications to automatically generate pre-sales reports when a calendar event is created. The workflow listens for incoming webhook calls and processes the event data to create comprehensive pre-sales analysis reports.
-________________________________________
-Webhook Endpoint
+# Pre-Sales Report Webhook Integration Guide
+
+## Overview
+
+This webhook enables external applications to automatically generate pre-sales reports when a calendar event is created. The workflow listens for incoming webhook calls and processes the event data to create comprehensive pre-sales analysis reports. Go to https://docs.lindy.ai/skills/by-lindy/webhooks for more information on how to connect to Lindy Agents via webhooks. 
+
+## Webhook Endpoint
+
+```
 POST https://api.lindy.ai/webhooks/{your-webhook-id}
-________________________________________
-Required Headers
+```
+
+## Required Headers
+
+```json
 {
   "Content-Type": "application/json",
   "Authorization": "Bearer {your-api-key}"
 }
-________________________________________
-Request Payload Structure
-Minimum Required Fields
+```
+
+## Request Payload Structure
+
+### Minimum Required Fields
+
+```json
 {
   "event_type": "calendar.event.created",
   "event_data": {
@@ -1188,10 +1207,13 @@ Minimum Required Fields
     ],
     "description": "Pre-sales meeting discussion",
     "company_name": "Target Company Inc.",
-    "meeting_type": "pre_sales"
   }
 }
-Optional Enhanced Fields
+```
+
+### Optional Enhanced Fields
+
+```json
 {
   "event_type": "calendar.event.created",
   "event_data": {
@@ -1215,34 +1237,44 @@ Optional Enhanced Fields
     "notes": "Follow-up from initial demo"
   }
 }
-________________________________________
-Field Descriptions
-Field	Type	Required	Description
-event_type	string	✅	Must be "calendar.event.created"
-event_data.title	string	✅	Meeting title (include company name)
-event_data.start_time	ISO 8601	✅	Meeting start time in UTC
-event_data.end_time	ISO 8601	✅	Meeting end time in UTC
-event_data.attendees	array	✅	List of meeting attendees
-event_data.attendees[].email	string	✅	Attendee email address
-event_data.attendees[].name	string	✅	Attendee full name
-event_data.company_name	string	✅	Target company name
-event_data.meeting_type	string	✅	Must be "pre_sales"
-event_data.description	string	⚪	Meeting description/agenda
-event_data.company_domain	string	⚪	Company website domain
-event_data.deal_value	number	⚪	Estimated deal value (USD)
-event_data.industry	string	⚪	Company industry
-event_data.location	string	⚪	Meeting location
-event_data.notes	string	⚪	Additional context
-________________________________________
-Response Format
-Success Response (200 OK)
+```
+
+## Field Descriptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `event_type` | string | ✅ | Must be "calendar.event.created" |
+| `event_data.title` | string | ✅ | Meeting title (include company name) |
+| `event_data.start_time` | ISO 8601 | ✅ | Meeting start time in UTC |
+| `event_data.end_time` | ISO 8601 | ✅ | Meeting end time in UTC |
+| `event_data.attendees` | array | ✅ | List of meeting attendees |
+| `event_data.attendees[].email` | string | ✅ | Attendee email address |
+| `event_data.attendees[].name` | string | ✅ | Attendee full name |
+| `event_data.company_name` | string | ✅ | Target company name |
+| `event_data.meeting_type` | string | ✅ | Must be "pre_sales" |
+| `event_data.description` | string | ⚪ | Meeting description/agenda |
+| `event_data.company_domain` | string | ⚪ | Company website domain |
+| `event_data.deal_value` | number | ⚪ | Estimated deal value (USD) |
+| `event_data.industry` | string | ⚪ | Company industry |
+| `event_data.location` | string | ⚪ | Meeting location |
+| `event_data.notes` | string | ⚪ | Additional context |
+
+## Response Format
+
+### Success Response (200 OK)
+
+```json
 {
   "status": "success",
   "message": "Pre-sales report generation initiated",
   "task_id": "68fadd49c0f99f5bfeb49769",
   "report_url": "https://chat.lindy.ai/workspace/reports/68fadd49c0f99f5bfeb49769"
 }
-Error Response (400 Bad Request)
+```
+
+### Error Response (400 Bad Request)
+
+```json
 {
   "status": "error",
   "message": "Missing required field: company_name",
@@ -1253,23 +1285,27 @@ Error Response (400 Bad Request)
     }
   ]
 }
-________________________________________
-What the Workflow Does
-1.	Receives webhook with calendar event data
-2.	Validates required fields
-3.	Enriches data using People Data Labs (company info, attendee details)
-4.	Researches company background using Perplexity AI
-5.	Analyzes competitive landscape and market position
-6.	Generates comprehensive pre-sales report including:
-o	Company overview and financials
-o	Key decision-maker profiles
-o	Competitive analysis
-o	Recommended talking points
-o	Risk assessment
-o	Next steps and action items
-7.	Delivers report via email and stores in workspace
-________________________________________
-Example cURL Request
+```
+
+## What the Workflow Does
+
+1. Receives webhook with calendar event data
+2. Validates required fields
+3. Enriches data using People Data Labs (company info, attendee details)
+4. Researches company background using Perplexity AI
+5. Analyzes competitive landscape and market position
+6. Generates comprehensive pre-sales report including:
+   - Company overview and financials
+   - Key decision-maker profiles
+   - Competitive analysis
+   - Recommended talking points
+   - Risk assessment
+   - Next steps and action items
+7. Delivers report via email and stores in workspace
+
+## Example cURL Request
+
+```bash
 curl -X POST https://api.lindy.ai/webhooks/{your-webhook-id} \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {your-api-key}" \
@@ -1295,10 +1331,15 @@ curl -X POST https://api.lindy.ai/webhooks/{your-webhook-id} \
       "location": "Virtual - Zoom"
     }
   }'
-________________________________________
-Integration Examples
-Calendly Webhook
+```
+
+## Integration Examples
+
+### Calendly Webhook
+
 Configure Calendly to send webhook on event creation:
+
+```javascript
 // Calendly webhook payload transformation
 const calendlyToPreSales = (calendlyPayload) => ({
   event_type: "calendar.event.created",
@@ -1315,7 +1356,11 @@ const calendlyToPreSales = (calendlyPayload) => ({
     meeting_type: "pre_sales"
   }
 });
-Google Calendar API
+```
+
+### Google Calendar API
+
+```javascript
 // Google Calendar event to webhook
 const googleCalToPreSales = (gcalEvent) => ({
   event_type: "calendar.event.created",
@@ -1333,9 +1378,36 @@ const googleCalToPreSales = (gcalEvent) => ({
     location: gcalEvent.location
   }
 });
+```
 
+## Best Practices
 
+✅ Include company domain when available for better enrichment  
+✅ Provide attendee roles to prioritize key decision-makers  
+✅ Add deal value for prioritization and context  
+✅ Use descriptive titles that include company name  
+✅ Send webhook 24-48 hours before meeting for timely report generation
 
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Report not generated | Verify `meeting_type` is "pre_sales" |
+| Missing company data | Ensure `company_name` or `company_domain` is provided |
+| Attendee enrichment failed | Check email format is valid |
+| Timeout errors | Reduce number of attendees or split into multiple calls |
+
+## Support
+
+For webhook integration support, contact: **scottsumerford@gmail.com**
+
+---
+
+### Next Steps
+
+1️⃣ Export this documentation to PDF/Markdown  
+2️⃣ Test webhook with sample payload  
+3️⃣ Create integration code for your calendar system
 ---
 ## 📞 Quick Reference Commands
 
