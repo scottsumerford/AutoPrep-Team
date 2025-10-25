@@ -1508,3 +1508,166 @@ gh release create v1.0   # Create release
 **Last Updated:** October 24, 2025  
 **Version:** 1.2.0  
 **Status:** ✅ Production Ready with Complete Deployment Guide
+
+---
+
+## 🔄 Pre-Sales Report Button Enhancement (October 25, 2025)
+
+### Overview
+
+The "Generate Pre-Sales Report" button has been enhanced to provide a better user experience with the following improvements:
+
+1. **Single Button Interface**: All actions (generate, polling, retry) happen within the same button
+2. **20-Minute Timer**: The button displays a countdown timer showing remaining time (MM:SS format)
+3. **AirTable Polling**: The button automatically polls AirTable every 5 seconds to check for the generated report
+4. **Automatic Retry**: If the report isn't found within 20 minutes, the button shows "Try again" option
+5. **No Separate "Try Again" Button**: The retry functionality is integrated into the main button
+
+### How It Works
+
+**User Flow:**
+1. User clicks "Generate Pre-Sales Report" button
+2. Button changes to "Generating Report..." with spinner and 20:00 timer
+3. Timer counts down in real-time (MM:SS format)
+4. Backend triggers the Lindy Pre-Sales Report agent via webhook
+5. Frontend polls AirTable every 5 seconds for the report
+6. When report is found in AirTable:
+   - Button changes to "Download Report" with download icon
+   - User can click to download the PDF
+7. If report not found after 20 minutes:
+   - Timer reaches 0:00
+   - Button shows "Try again" option
+   - User can click to retry the generation
+
+### Technical Implementation
+
+**New API Endpoints:**
+
+1. **GET /api/lindy/presales-report-status?event_id=123**
+   - Polls AirTable for the generated report
+   - Returns: `{ found: true, reportUrl: "...", status: "completed" }`
+   - Returns: `{ found: false, status: "processing" }` if not ready
+
+2. **GET /api/lindy/slides-status?event_id=123**
+   - Polls AirTable for the generated slides
+   - Same response format as presales-report-status
+
+**Frontend State Management:**
+
+```typescript
+// Polling state
+const [reportPollingId, setReportPollingId] = useState<number | null>(null);
+const [reportTimeRemaining, setReportTimeRemaining] = useState<{ [key: number]: string }>({});
+
+// Timer updates every 1 second
+// Polling checks AirTable every 5 seconds
+// Timeout after 20 minutes (1200 seconds)
+```
+
+**Button States:**
+
+| State | Display | Action |
+|-------|---------|--------|
+| `pending` | "Generate Pre-Sales Report" | Click to start generation |
+| `processing` | "Generating Report... (20:00)" | Disabled, shows timer |
+| `completed` | "Download Report" | Click to download PDF |
+| `failed` | "Report Failed" | Shows error state |
+| `stale` (timeout) | "Try again" | Click to retry generation |
+
+### AirTable Integration
+
+**Required Environment Variables:**
+
+```bash
+AIRTABLE_API_KEY=<your-airtable-api-key>
+AIRTABLE_BASE_ID=appUwKSnmMH7TVgvf
+AIRTABLE_TABLE_ID=tbl3xkB7fGkC10CGN
+```
+
+**Expected AirTable Record Fields:**
+
+The polling endpoint looks for these field names (in order of preference):
+- `Calendar Event ID` or `Event ID` or `event_id` - to match the event
+- `Report URL` or `PDF URL` or `report_url` - the download link
+- `Status` or `status` - the generation status
+
+**Example AirTable Record:**
+
+```
+{
+  "Calendar Event ID": "123",
+  "Report URL": "https://example.com/report-123.pdf",
+  "Status": "completed"
+}
+```
+
+### Timeout Configuration
+
+- **Report Generation Timeout:** 20 minutes (1,200,000 ms)
+- **Polling Interval:** 5 seconds (5,000 ms)
+- **Timer Update Interval:** 1 second (1,000 ms)
+- **Stale Detection:** Checks if `presales_report_started_at` is > 20 minutes old
+
+### Files Modified
+
+1. **app/profile/[slug]/page.tsx**
+   - Added `reportPollingId` and `reportTimeRemaining` state
+   - Added `formatTimeRemaining()` helper function
+   - Added polling effect hooks for both reports and slides
+   - Updated button UI to show timer and "Try again" option
+   - Changed timeout from 15 minutes to 20 minutes
+
+2. **app/api/lindy/presales-report-status/route.ts** (NEW)
+   - GET endpoint to poll AirTable for report status
+   - Queries AirTable and returns report URL if found
+   - Updates database when report is found
+
+3. **app/api/lindy/slides-status/route.ts** (NEW)
+   - GET endpoint to poll AirTable for slides status
+   - Queries AirTable and returns slides URL if found
+   - Updates database when slides are found
+
+### Testing the Feature
+
+**Local Testing:**
+
+1. Start the dev server: `bun run dev`
+2. Navigate to a profile page
+3. Click "Generate Pre-Sales Report" button
+4. Verify:
+   - Button shows "Generating Report..." with spinner
+   - Timer counts down from 20:00
+   - Console shows polling requests every 5 seconds
+   - After 20 minutes, button shows "Try again"
+
+**Production Testing:**
+
+1. Deploy to production: `git push origin main`
+2. Wait for Vercel deployment
+3. Test on https://team.autoprep.ai
+4. Verify AirTable credentials are set in Vercel environment variables
+
+### Troubleshooting
+
+**Problem:** Timer not updating
+- **Solution:** Check browser console for errors, verify polling state is set
+
+**Problem:** Report not found after 20 minutes
+- **Solution:** Check AirTable for the record, verify field names match expected format
+
+**Problem:** "Try again" button not appearing
+- **Solution:** Verify `isReportStale()` function is checking correct timeout (20 minutes)
+
+**Problem:** AirTable query fails
+- **Solution:** Verify `AIRTABLE_API_KEY`, `AIRTABLE_BASE_ID`, `AIRTABLE_TABLE_ID` are set in Vercel
+
+### Future Enhancements
+
+- [ ] Add email notification when report is ready
+- [ ] Add webhook retry logic if AirTable query fails
+- [ ] Add exponential backoff for polling (start at 5s, increase to 30s)
+- [ ] Add user preference for timeout duration
+- [ ] Add report preview before download
+
+---
+

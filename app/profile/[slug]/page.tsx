@@ -58,7 +58,7 @@ interface TokenStats {
   total: number;
 }
 
-// Helper function to check if a report is stale (processing > 15 minutes)
+// Helper function to check if a report is stale (processing > 20 minutes)
 function isReportStale(event: CalendarEvent): boolean {
   if (event.presales_report_status !== 'processing') {
     return false;
@@ -69,19 +69,19 @@ function isReportStale(event: CalendarEvent): boolean {
     return false;
   }
   
-  // Check if presales_report_started_at is more than 15 minutes ago
+  // Check if presales_report_started_at is more than 20 minutes ago
   if (!event.presales_report_started_at) {
     return false;
   }
   
   const startedTime = new Date(event.presales_report_started_at).getTime();
   const now = new Date().getTime();
-  const fifteenMinutesMs = 15 * 60 * 1000;
+  const twentyMinutesMs = 20 * 60 * 1000;
   
-  return (now - startedTime) > fifteenMinutesMs;
+  return (now - startedTime) > twentyMinutesMs;
 }
 
-// Helper function to check if slides are stale (processing > 15 minutes)
+// Helper function to check if slides are stale (processing > 20 minutes)
 function areSlidesStale(event: CalendarEvent): boolean {
   if (event.slides_status !== 'processing') {
     return false;
@@ -92,16 +92,30 @@ function areSlidesStale(event: CalendarEvent): boolean {
     return false;
   }
   
-  // Check if slides_started_at is more than 15 minutes ago
+  // Check if slides_started_at is more than 20 minutes ago
   if (!event.slides_started_at) {
     return false;
   }
   
   const startedTime = new Date(event.slides_started_at).getTime();
   const now = new Date().getTime();
-  const fifteenMinutesMs = 15 * 60 * 1000;
+  const twentyMinutesMs = 20 * 60 * 1000;
   
-  return (now - startedTime) > fifteenMinutesMs;
+  return (now - startedTime) > twentyMinutesMs;
+}
+
+// Helper function to format remaining time
+function formatTimeRemaining(startedAt: string): string {
+  const startedTime = new Date(startedAt).getTime();
+  const now = new Date().getTime();
+  const twentyMinutesMs = 20 * 60 * 1000;
+  const elapsedMs = now - startedTime;
+  const remainingMs = Math.max(0, twentyMinutesMs - elapsedMs);
+  
+  const minutes = Math.floor(remainingMs / 60000);
+  const seconds = Math.floor((remainingMs % 60000) / 1000);
+  
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 export default function ProfilePage() {
@@ -122,6 +136,10 @@ export default function ProfilePage() {
   const [showOutlookDisconnectDialog, setShowOutlookDisconnectDialog] = useState(false);
   const [generatingReportId, setGeneratingReportId] = useState<number | null>(null);
   const [generatingSlidesId, setGeneratingSlidesId] = useState<number | null>(null);
+  const [reportPollingId, setReportPollingId] = useState<number | null>(null);
+  const [slidesPollingId, setSlidesPollingId] = useState<number | null>(null);
+  const [reportTimeRemaining, setReportTimeRemaining] = useState<{ [key: number]: string }>({});
+  const [slidesTimeRemaining, setSlidesTimeRemaining] = useState<{ [key: number]: string }>({});
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -181,6 +199,122 @@ export default function ProfilePage() {
     }
   }, [profile, fetchEvents, fetchTokenStats]);
 
+  // Timer for report time remaining
+  useEffect(() => {
+    if (reportPollingId === null) return;
+
+    const interval = setInterval(() => {
+      setEvents(prevEvents => {
+        const event = prevEvents.find(e => e.id === reportPollingId);
+        if (event && event.presales_report_started_at) {
+          setReportTimeRemaining(prev => ({
+            ...prev,
+            [reportPollingId]: formatTimeRemaining(event.presales_report_started_at || "")
+          }));
+        }
+        return prevEvents;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [reportPollingId]);
+
+  // Timer for slides time remaining
+  useEffect(() => {
+    if (slidesPollingId === null) return;
+
+    const interval = setInterval(() => {
+      setEvents(prevEvents => {
+        const event = prevEvents.find(e => e.id === slidesPollingId);
+        if (event && event.slides_started_at) {
+          setSlidesTimeRemaining(prev => ({
+            ...prev,
+            [slidesPollingId]: formatTimeRemaining(event.slides_started_at || "")
+          }));
+        }
+        return prevEvents;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [slidesPollingId]);
+
+  // Polling for report status
+  useEffect(() => {
+    if (reportPollingId === null) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/lindy/presales-report-status?event_id=${reportPollingId}`);
+        const data = await response.json();
+
+        if (data.found && data.reportUrl) {
+          console.log('✅ Report found:', data.reportUrl);
+          setEvents(prevEvents =>
+            prevEvents.map(e =>
+              e.id === reportPollingId
+                ? { ...e, presales_report_status: 'completed', presales_report_url: data.reportUrl }
+                : e
+            )
+          );
+          setReportPollingId(null);
+        } else if (events.find(e => e.id === reportPollingId) && isReportStale(events.find(e => e.id === reportPollingId)!)) {
+          console.log('⏱️ Report generation timeout - showing try again');
+          setEvents(prevEvents =>
+            prevEvents.map(e =>
+              e.id === reportPollingId
+                ? { ...e, presales_report_status: 'processing' }
+                : e
+            )
+          );
+          setReportPollingId(null);
+        }
+      } catch (error) {
+        console.error('Error polling report status:', error);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [reportPollingId, events]);
+
+  // Polling for slides status
+  useEffect(() => {
+    if (slidesPollingId === null) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/lindy/slides-status?event_id=${slidesPollingId}`);
+        const data = await response.json();
+
+        if (data.found && data.slidesUrl) {
+          console.log('✅ Slides found:', data.slidesUrl);
+          setEvents(prevEvents =>
+            prevEvents.map(e =>
+              e.id === slidesPollingId
+                ? { ...e, slides_status: 'completed', slides_url: data.slidesUrl }
+                : e
+            )
+          );
+          setSlidesPollingId(null);
+        } else if (events.find(e => e.id === slidesPollingId) && areSlidesStale(events.find(e => e.id === slidesPollingId)!)) {
+          console.log('⏱️ Slides generation timeout - showing try again');
+          setEvents(prevEvents =>
+            prevEvents.map(e =>
+              e.id === slidesPollingId
+                ? { ...e, slides_status: 'processing' }
+                : e
+            )
+          );
+          setSlidesPollingId(null);
+        }
+      } catch (error) {
+        console.error('Error polling slides status:', error);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [slidesPollingId, events]);
+
   const handleSyncCalendar = async () => {
     setSyncing(true);
     try {
@@ -219,11 +353,18 @@ export default function ProfilePage() {
       if (response.ok) {
         console.log('✅ Pre-sales report generation started');
         // Update local state to show processing
+        const now = new Date().toISOString();
         setEvents(events.map(e => 
           e.id === event.id 
-            ? { ...e, presales_report_status: 'processing', presales_report_started_at: new Date().toISOString() }
+            ? { ...e, presales_report_status: 'processing', presales_report_started_at: now }
             : e
         ));
+        // Start polling for the report
+        setReportPollingId(event.id);
+        setReportTimeRemaining(prev => ({
+          ...prev,
+          [event.id]: '20:00'
+        }));
       } else {
         console.error('❌ Failed to generate pre-sales report');
       }
@@ -254,11 +395,18 @@ export default function ProfilePage() {
       if (response.ok) {
         console.log('✅ Slides generation started');
         // Update local state to show processing
+        const now = new Date().toISOString();
         setEvents(events.map(e => 
           e.id === event.id 
-            ? { ...e, slides_status: 'processing', slides_started_at: new Date().toISOString() }
+            ? { ...e, slides_status: 'processing', slides_started_at: now }
             : e
         ));
+        // Start polling for the slides
+        setSlidesPollingId(event.id);
+        setSlidesTimeRemaining(prev => ({
+          ...prev,
+          [event.id]: '20:00'
+        }));
       } else {
         console.error('❌ Failed to generate slides');
       }
@@ -581,10 +729,15 @@ export default function ProfilePage() {
                                 </Button>
                               )}
                               {event.presales_report_status === 'processing' && (
-                                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  disabled
+                                  className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700"
+                                >
                                   <Loader2 className="w-3 h-3 animate-spin" />
-                                  Generating Report...
-                                </div>
+                                  Generating Report... {reportTimeRemaining[event.id] && `(${reportTimeRemaining[event.id]})`}
+                                </Button>
                               )}
                               {event.presales_report_status === 'completed' && event.presales_report_url && (
                                 <a
@@ -645,10 +798,15 @@ export default function ProfilePage() {
                                 </Button>
                               )}
                               {event.slides_status === 'processing' && (
-                                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  disabled
+                                  className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700"
+                                >
                                   <Loader2 className="w-3 h-3 animate-spin" />
-                                  Generating Slides...
-                                </div>
+                                  Generating Slides... {slidesTimeRemaining[event.id] && `(${slidesTimeRemaining[event.id]})`}
+                                </Button>
                               )}
                               {event.slides_status === 'completed' && event.slides_url && (
                                 <a
