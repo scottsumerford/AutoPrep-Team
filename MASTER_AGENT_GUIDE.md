@@ -1,7 +1,7 @@
 # AutoPrep Team Dashboard - Master Agent Guide
 
-**Last Updated:** October 22, 2025  
-**Version:** 1.1.0  
+**Last Updated:** October 24, 2025  
+**Version:** 1.2.0  
 **Status:** Production Ready
 
 ---
@@ -61,6 +61,7 @@
 ### Webhook Secrets - Used to authenticate webhook calls
 - LINDY_PRESALES_WEBHOOK_SECRET=2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07
 - LINDY_SLIDES_WEBHOOK_SECRET=f395b62647c72da770de97f7715ee68824864b21b9a2435bdaab7004762359c5
+- LINDY_WEBHOOK_SECRET=[configured in Vercel - used for webhook callback signature verification]
 
 ### Timeout Configuration
 - **Report Generation Timeout:** 15 minutes (900,000 ms)
@@ -379,29 +380,78 @@ POST /api/lindy/slides
 
 ## 🪝 Webhook Configuration
 
-### Webhook Authentication
+### Webhook Flow Overview
 
-All webhooks use HMAC-SHA256 signature verification:
+The application uses a two-way webhook system:
+
+1. **Outbound Webhook:** Backend → Lindy Agent
+   - Triggers report/slides generation
+   - Uses `Authorization: Bearer [secret]` header
+   - Endpoints: `LINDY_PRESALES_WEBHOOK_URL` or `LINDY_SLIDES_WEBHOOK_URL`
+
+2. **Callback Webhook:** Lindy Agent → Backend
+   - Returns generated report/slides URL
+   - Uses HMAC-SHA256 signature verification
+   - Endpoint: `LINDY_CALLBACK_URL` (https://team.autoprep.ai/api/lindy/webhook)
+
+### Outbound Webhook Authentication
+
+When calling Lindy agents, use the `Authorization: Bearer` header:
 
 ```typescript
-const signature = req.headers['x-lindy-signature'];
-const secret = process.env.LINDY_PRESALES_WEBHOOK_SECRET;
-const body = JSON.stringify(req.body);
-const hash = crypto
-  .createHmac('sha256', secret)
-  .update(body)
-  .digest('hex');
+const headers: HeadersInit = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${process.env.LINDY_PRESALES_WEBHOOK_SECRET}`,
+};
 
-if (hash !== signature) {
-  return res.status(401).json({ error: 'Unauthorized' });
+const response = await fetch(process.env.LINDY_PRESALES_WEBHOOK_URL, {
+  method: 'POST',
+  headers,
+  body: JSON.stringify(payload),
+});
+```
+
+### Callback Webhook Signature Verification
+
+All callbacks from Lindy agents include an `x-lindy-signature` header with HMAC-SHA256 signature:
+
+```typescript
+const signature = request.headers.get('x-lindy-signature');
+const secret = process.env.LINDY_WEBHOOK_SECRET;
+
+if (signature) {
+  const hash = crypto
+    .createHmac('sha256', secret)
+    .update(rawBody)
+    .digest('hex');
+
+  if (hash !== signature) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  }
 }
 ```
+
+**Important:** The signature must be verified against the raw request body (not JSON-parsed), and the secret used is `LINDY_WEBHOOK_SECRET` (not the outbound webhook secret).
 
 ### Webhook Retry Logic
 
 - **Timeout:** 15 minutes (900,000 ms)
 - **Retry Trigger:** When user clicks "Try again" button
 - **Timestamp Check:** Uses `presales_report_started_at` or `slides_started_at`
+
+### Environment Variables Required
+
+```bash
+# Outbound Webhook (Backend → Lindy Agent)
+LINDY_PRESALES_WEBHOOK_URL=https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa
+LINDY_PRESALES_WEBHOOK_SECRET=2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07
+LINDY_SLIDES_WEBHOOK_URL=https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4
+LINDY_SLIDES_WEBHOOK_SECRET=f395b62647c72da770de97f7715ee68824864b21b9a2435bdaab7004762359c5
+
+# Callback Webhook (Lindy Agent → Backend)
+LINDY_CALLBACK_URL=https://team.autoprep.ai/api/lindy/webhook
+LINDY_WEBHOOK_SECRET=[configured in Vercel - used for signature verification]
+```
 
 ---
 
@@ -544,8 +594,8 @@ For issues or questions:
 
 ---
 
-**Last Updated:** October 22, 2025  
-**Version:** 1.1.0  
+**Last Updated:** October 24, 2025  
+**Version:** 1.2.0  
 **Status:** ✅ Production Ready
 
 ---
@@ -1455,6 +1505,6 @@ gh release create v1.0   # Create release
 
 ---
 
-**Last Updated:** October 22, 2025  
-**Version:** 1.1.0  
+**Last Updated:** October 24, 2025  
+**Version:** 1.2.0  
 **Status:** ✅ Production Ready with Complete Deployment Guide
