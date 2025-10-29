@@ -59,23 +59,70 @@ interface TokenStats {
 }
 
 // Helper function to extract the OTHER attendee's email (not the user's)
-// Compares user's email domain against event attendees and returns the OTHER person's email
+// Compares user's email against event attendees and returns the OTHER person's email
+// Prioritizes external attendees (different domain) over internal ones
 function getOtherAttendeeEmail(userEmail: string, attendees?: string[]): string {
   if (!attendees || attendees.length === 0) {
+    console.warn('⚠️ No attendees found for event');
     return '';
   }
 
-  // Extract domain from user's email
+  const userEmailLower = userEmail.toLowerCase();
   const userDomain = userEmail.split('@')[1]?.toLowerCase() || '';
   
-  // Find the first attendee that is NOT on the user's domain
-  const otherAttendee = attendees.find(email => {
-    const attendeeDomain = email.split('@')[1]?.toLowerCase() || '';
-    return attendeeDomain !== userDomain;
+  console.log('🔍 Finding invitee for pre-sales report:', {
+    userEmail: userEmailLower,
+    userDomain,
+    attendees: attendees.map(a => a.toLowerCase()),
+    attendeeCount: attendees.length
   });
 
-  return otherAttendee || '';
+  // First, try to find an attendee that is NOT the user AND NOT on the user's domain
+  const externalAttendee = attendees.find(email => {
+    const emailLower = email.toLowerCase();
+    const attendeeDomain = email.split('@')[1]?.toLowerCase() || '';
+    
+    // Exclude the user's own email
+    if (emailLower === userEmailLower) {
+      console.log(`  ⊘ Skipping user's own email: ${emailLower}`);
+      return false;
+    }
+    
+    // Exclude attendees on the same domain as the user
+    if (attendeeDomain === userDomain) {
+      console.log(`  ⊘ Skipping same-domain attendee: ${emailLower} (domain: ${attendeeDomain})`);
+      return false;
+    }
+    
+    console.log(`  ✓ Found external attendee: ${emailLower} (domain: ${attendeeDomain})`);
+    return true;
+  });
+
+  if (externalAttendee) {
+    console.log(`✅ Selected invitee for pre-sales report: ${externalAttendee.toLowerCase()}`);
+    return externalAttendee;
+  }
+
+  // Fallback: if no external attendee, find any attendee that's not the user
+  const otherAttendee = attendees.find(email => {
+    const emailLower = email.toLowerCase();
+    if (emailLower === userEmailLower) {
+      console.log(`  ⊘ Skipping user's own email: ${emailLower}`);
+      return false;
+    }
+    console.log(`  ✓ Found internal attendee (fallback): ${emailLower}`);
+    return true;
+  });
+
+  if (otherAttendee) {
+    console.log(`⚠️ No external attendee found, using internal attendee: ${otherAttendee.toLowerCase()}`);
+    return otherAttendee;
+  }
+
+  console.warn('❌ No suitable attendee found for pre-sales report');
+  return '';
 }
+
 
 // Helper function to check if a report is stale (processing > 20 minutes)
 function isReportStale(event: CalendarEvent): boolean {
