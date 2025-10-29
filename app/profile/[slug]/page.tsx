@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
+import { FileUploadSection } from '@/components/FileUploadSection';
 import { CalendarView } from './calendar-view';
 
 interface Profile {
@@ -29,6 +30,7 @@ interface Profile {
   keyword_filter?: string;
   google_access_token?: string;
   outlook_access_token?: string;
+  airtable_record_id?: string;
 }
 
 interface CalendarEvent {
@@ -727,6 +729,16 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           </div>
+
+            {/* File Upload Section */}
+            <FileUploadSection 
+              profileId={profile.id}
+              onUploadSuccess={(fileType, airtableRecordId) => {
+                console.log(`✅ ${fileType} uploaded successfully. Airtable Record ID: ${airtableRecordId}`);
+                // Optionally refresh profile data
+                fetchProfile();
+              }}
+            />
 
           {/* Calendar and Events */}
           <div className="lg:col-span-2 space-y-8">

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateEventPresalesStatus, getEventById, markStalePresalesRuns } from '@/lib/db';
+import { updateEventPresalesStatus, getEventById, markStalePresalesRuns, getProfileById } from '@/lib/db';
 
 /**
  * POST /api/lindy/presales-report
@@ -35,6 +35,16 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
+    // Get profile to include airtable_record_id
+    const profile = await getProfileById(event.profile_id);
+    if (!profile) {
+      console.error('❌ Profile not found for event:', event_id);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Profile not found' 
+      }, { status: 404 });
+    }
+
     // Get webhook URL and secret
     const webhookUrl = process.env.LINDY_PRESALES_WEBHOOK_URL;
     const webhookSecret = process.env.LINDY_PRESALES_WEBHOOK_SECRET;
@@ -63,6 +73,8 @@ export async function POST(request: NextRequest) {
       event_title: event_title,
       event_description: event_description || '',
       attendee_email: attendee_email,
+      airtable_record_id: profile.airtable_record_id || '',
+      user_profile_id: profile.id,
       webhook_callback_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
     };
 

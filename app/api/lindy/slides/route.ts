@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateEventSlidesStatus, getEventById, markStaleSlidesRuns } from '@/lib/db';
+import { updateEventSlidesStatus, getEventById, markStaleSlidesRuns, getProfileById } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +26,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         success: false, 
         error: 'Event not found' 
+      }, { status: 404 });
+    }
+
+    // Get profile to include airtable_record_id
+    const profile = await getProfileById(event.profile_id);
+    if (!profile) {
+      console.error('❌ Profile not found for event:', event_id);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Profile not found' 
       }, { status: 404 });
     }
 
@@ -58,6 +68,8 @@ export async function POST(request: NextRequest) {
       event_title: event_title,
       event_description: event_description || '',
       attendee_email: attendee_email,
+      airtable_record_id: profile.airtable_record_id || '',
+      user_profile_id: profile.id,
       webhook_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
     };
 
@@ -99,7 +111,8 @@ export async function POST(request: NextRequest) {
     console.error('Error generating slides:', error);
     return NextResponse.json({ 
       success: false, 
-      error: 'Failed to generate slides' 
+      error: 'Failed to generate slides',
+      details: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }

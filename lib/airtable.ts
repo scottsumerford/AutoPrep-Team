@@ -1,261 +1,130 @@
-/**
- * Airtable Integration for AutoPrep Team Dashboard
- * Handles reading pre-sales reports from Airtable
- */
+import axios from 'axios';
 
-export interface AirtableRecord {
+const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY || 'patyvS3W6QpbsXb2u.5d468ceeb4d2169784e6b5cb95f83cb9a1c7ae3b9edf71d7506c101985ca1201';
+const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || 'appUwKSnmMH7TVgvf';
+const AIRTABLE_TABLE_ID = process.env.AIRTABLE_TABLE_ID || 'tbl3xkB7fGkC10CGN';
+
+const AIRTABLE_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_ID}`;
+
+interface AirtableField {
+  [key: string]: string | number | boolean | null;
+}
+
+interface AirtableRecord {
+  fields: AirtableField;
+}
+
+interface AirtableResponse {
   id: string;
-  fields: {
-    companyName?: string;
-    meetingDate?: string;
-    meetingTitle?: string;
-    reportContent?: string;
-    reportGeneratedDate?: string;
-    weekNumber?: number;
-    attendees?: string[];
-  };
+  fields: AirtableField;
   createdTime: string;
 }
 
-export interface AirtableResponse {
-  records: AirtableRecord[];
-  offset?: string;
-}
-
-const AIRTABLE_API_BASE = 'https://api.airtable.com/v0';
-
 /**
- * Get all records from Airtable table
+ * Upload user profile data to Airtable
+ * Returns the Airtable record ID which serves as the unique profile ID
  */
-export async function getAirtableRecords(
-  filters?: {
-    companyName?: string;
-    meetingTitle?: string;
-    weekNumber?: number;
-  }
-): Promise<AirtableRecord[]> {
+export async function uploadProfileToAirtable(
+  profileId: number,
+  profileName: string,
+  profileEmail: string,
+  companyInfoUrl?: string,
+  slidesUrl?: string
+): Promise<string> {
   try {
-    const apiKey = process.env.AIRTABLE_API_KEY;
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    const tableId = process.env.AIRTABLE_TABLE_ID;
-
-    if (!apiKey || !baseId || !tableId) {
-      console.error('❌ Airtable credentials not configured');
-      return [];
-    }
-
-    let filterFormula = '';
-    if (filters) {
-      const conditions = [];
-      if (filters.companyName) {
-        conditions.push(`{companyName} = '${filters.companyName}'`);
-      }
-      if (filters.meetingTitle) {
-        conditions.push(`{meetingTitle} = '${filters.meetingTitle}'`);
-      }
-      if (filters.weekNumber) {
-        conditions.push(`{weekNumber} = ${filters.weekNumber}`);
-      }
-      if (conditions.length > 0) {
-        filterFormula = `&filterByFormula=AND(${conditions.join(',')})`;
-      }
-    }
-
-    const url = `${AIRTABLE_API_BASE}/${baseId}/${tableId}?${filterFormula}`;
-
-    console.log('🔍 Fetching records from Airtable:', { baseId, tableId });
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      console.error('❌ Airtable API error:', response.status, response.statusText);
-      return [];
-    }
-
-    const data: AirtableResponse = await response.json();
-    console.log(`✅ Retrieved ${data.records.length} records from Airtable`);
-
-    return data.records;
-  } catch (error) {
-    console.error('❌ Error fetching Airtable records:', error);
-    return [];
-  }
-}
-
-/**
- * Get a specific record by ID
- */
-export async function getAirtableRecord(recordId: string): Promise<AirtableRecord | null> {
-  try {
-    const apiKey = process.env.AIRTABLE_API_KEY;
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    const tableId = process.env.AIRTABLE_TABLE_ID;
-
-    if (!apiKey || !baseId || !tableId) {
-      console.error('❌ Airtable credentials not configured');
-      return null;
-    }
-
-    const url = `${AIRTABLE_API_BASE}/${baseId}/${tableId}/${recordId}`;
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      console.error('❌ Airtable API error:', response.status);
-      return null;
-    }
-
-    const data: AirtableRecord = await response.json();
-    console.log('✅ Retrieved record from Airtable:', recordId);
-
-    return data;
-  } catch (error) {
-    console.error('❌ Error fetching Airtable record:', error);
-    return null;
-  }
-}
-
-/**
- * Create a new record in Airtable
- */
-export async function createAirtableRecord(fields: {
-  companyName?: string;
-  meetingDate?: string;
-  meetingTitle?: string;
-  reportContent?: string;
-  reportGeneratedDate?: string;
-  weekNumber?: number;
-  attendees?: string[];
-}): Promise<AirtableRecord | null> {
-  try {
-    const apiKey = process.env.AIRTABLE_API_KEY;
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    const tableId = process.env.AIRTABLE_TABLE_ID;
-
-    if (!apiKey || !baseId || !tableId) {
-      console.error('❌ Airtable credentials not configured');
-      return null;
-    }
-
-    const url = `${AIRTABLE_API_BASE}/${baseId}/${tableId}`;
-
-    console.log('📝 Creating new Airtable record:', fields);
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+    const record: AirtableRecord = {
+      fields: {
+        'Profile ID': profileId,
+        'Profile Name': profileName,
+        'Profile Email': profileEmail,
+        'Company Info URL': companyInfoUrl || '',
+        'Slides URL': slidesUrl || '',
+        'Created At': new Date().toISOString(),
       },
-      body: JSON.stringify({
-        records: [
-          {
-            fields
-          }
-        ]
-      })
-    });
+    };
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('❌ Airtable API error:', response.status, error);
-      return null;
+    const response = await axios.post(
+      AIRTABLE_API_URL,
+      { records: [record] },
+      {
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (response.data.records && response.data.records.length > 0) {
+      const airtableId = response.data.records[0].id;
+      console.log(`✅ Profile uploaded to Airtable with ID: ${airtableId}`);
+      return airtableId;
     }
 
-    const data = await response.json();
-    const record = data.records[0];
-    console.log('✅ Created Airtable record:', record.id);
-
-    return record;
+    throw new Error('No record returned from Airtable');
   } catch (error) {
-    console.error('❌ Error creating Airtable record:', error);
-    return null;
+    console.error('❌ Error uploading profile to Airtable:', error);
+    throw error;
   }
 }
 
 /**
- * Update an existing record in Airtable
+ * Update profile files in Airtable
  */
-export async function updateAirtableRecord(
-  recordId: string,
-  fields: Partial<{
-    companyName?: string;
-    meetingDate?: string;
-    meetingTitle?: string;
-    reportContent?: string;
-    reportGeneratedDate?: string;
-    weekNumber?: number;
-    attendees?: string[];
-  }>
-): Promise<AirtableRecord | null> {
+export async function updateProfileFilesInAirtable(
+  airtableRecordId: string,
+  companyInfoUrl?: string,
+  slidesUrl?: string
+): Promise<void> {
   try {
-    const apiKey = process.env.AIRTABLE_API_KEY;
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    const tableId = process.env.AIRTABLE_TABLE_ID;
-
-    if (!apiKey || !baseId || !tableId) {
-      console.error('❌ Airtable credentials not configured');
-      return null;
+    const fields: AirtableField = {};
+    
+    if (companyInfoUrl) {
+      fields['Company Info URL'] = companyInfoUrl;
+    }
+    if (slidesUrl) {
+      fields['Slides URL'] = slidesUrl;
     }
 
-    const url = `${AIRTABLE_API_BASE}/${baseId}/${tableId}/${recordId}`;
-
-    console.log('✏️ Updating Airtable record:', recordId, fields);
-
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ fields })
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('❌ Airtable API error:', response.status, error);
-      return null;
+    if (Object.keys(fields).length === 0) {
+      console.log('⚠️ No fields to update');
+      return;
     }
 
-    const data: AirtableRecord = await response.json();
-    console.log('✅ Updated Airtable record:', recordId);
+    await axios.patch(
+      `${AIRTABLE_API_URL}/${airtableRecordId}`,
+      { fields },
+      {
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
-    return data;
+    console.log(`✅ Profile updated in Airtable: ${airtableRecordId}`);
   } catch (error) {
-    console.error('❌ Error updating Airtable record:', error);
-    return null;
+    console.error('❌ Error updating profile in Airtable:', error);
+    throw error;
   }
 }
 
 /**
- * Search for reports by company name
+ * Get profile from Airtable by record ID
  */
-export async function searchReportsByCompany(companyName: string): Promise<AirtableRecord[]> {
-  return getAirtableRecords({ companyName });
-}
+export async function getProfileFromAirtable(airtableRecordId: string): Promise<AirtableResponse | null> {
+  try {
+    const response = await axios.get(
+      `${AIRTABLE_API_URL}/${airtableRecordId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        },
+      }
+    );
 
-/**
- * Search for reports by meeting title
- */
-export async function searchReportsByMeetingTitle(meetingTitle: string): Promise<AirtableRecord[]> {
-  return getAirtableRecords({ meetingTitle });
-}
-
-/**
- * Get reports for a specific week
- */
-export async function getReportsByWeek(weekNumber: number): Promise<AirtableRecord[]> {
-  return getAirtableRecords({ weekNumber });
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching profile from Airtable:', error);
+    return null;
+  }
 }

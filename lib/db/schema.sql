@@ -86,3 +86,6 @@ COMMENT ON COLUMN calendar_events.presales_report_url IS 'URL to download the ge
 COMMENT ON COLUMN calendar_events.slides_status IS 'Status of slides generation: pending, processing, completed, failed';
 COMMENT ON COLUMN calendar_events.slides_url IS 'URL to download the generated slides';
 COMMENT ON COLUMN token_usage.operation_type IS 'Type of operation: agent_run, presales_report, or slides_generation';
+
+-- Add airtable_record_id column to profiles table if it doesn't exist
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS airtable_record_id VARCHAR(255);

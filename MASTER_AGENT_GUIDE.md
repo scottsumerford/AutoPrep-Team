@@ -1671,3 +1671,172 @@ The polling endpoint looks for these field names (in order of preference):
 
 ---
 
+
+---
+
+## 📁 File Upload & Airtable Integration
+
+### Overview
+Users can now upload company information and slide templates directly from the profile page. These files are stored in Airtable with a unique profile ID that is sent to the Pre-sales and Slides generation agents.
+
+### Airtable Configuration
+
+**Airtable Base:** `appUwKSnmMH7TVgvf`
+**Airtable Table:** `tbl3xkB7fGkC10CGN` (User Profiles with Files)
+**Airtable API Key:** `patyvS3W6QpbsXb2u.5d468ceeb4d2169784e6b5cb95f83cb9a1c7ae3b9edf71d7506c101985ca1201`
+
+### Airtable Table Schema
+
+The Airtable table contains the following fields:
+- **Profile ID** (Number): Internal database profile ID
+- **Profile Name** (Text): User's name
+- **Profile Email** (Email): User's email
+- **Company Info URL** (URL): Link to uploaded company information file
+- **Slides URL** (URL): Link to uploaded slide template
+- **Created At** (Date): Timestamp of record creation
+- **Airtable Record ID** (Text): Unique Airtable record ID (auto-generated)
+
+### File Upload Process
+
+1. **User uploads file** via the FileUploadSection component
+2. **File validation** checks:
+   - Allowed types: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT, CSV
+   - Maximum size: 50MB
+3. **File conversion** to base64 for storage
+4. **Airtable record creation** (if first upload for profile):
+   - Creates new record with profile information
+   - Returns unique Airtable Record ID
+5. **Database update** stores airtable_record_id in profiles table
+6. **File URL storage** in Airtable and local database
+
+### API Endpoint
+
+**POST** `/api/files/upload`
+
+**Request:**
+```
+FormData:
+- file: File (required)
+- profileId: number (required)
+- fileType: 'company_info' | 'slides' (required)
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Company info uploaded successfully",
+  "airtableRecordId": "rec123456789",
+  "fileUrl": "data:application/pdf;base64,..."
+}
+```
+
+### Webhook Integration
+
+Both Pre-sales and Slides webhooks now include:
+- `airtable_record_id`: Unique Airtable record ID for the user profile
+- `user_profile_id`: Internal database profile ID
+
+**Pre-sales Webhook Payload:**
+```json
+{
+  "calendar_event_id": 123,
+  "event_title": "Meeting with Client",
+  "event_description": "...",
+  "attendee_email": "client@example.com",
+  "airtable_record_id": "rec123456789",
+  "user_profile_id": 1,
+  "webhook_callback_url": "https://team.autoprep.ai/api/lindy/webhook"
+}
+```
+
+**Slides Webhook Payload:**
+```json
+{
+  "calendar_event_id": 123,
+  "event_title": "Meeting with Client",
+  "event_description": "...",
+  "attendee_email": "client@example.com",
+  "airtable_record_id": "rec123456789",
+  "user_profile_id": 1,
+  "webhook_url": "https://team.autoprep.ai/api/lindy/webhook"
+}
+```
+
+### Database Schema Updates
+
+**New Column in profiles table:**
+```sql
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS airtable_record_id VARCHAR(255);
+```
+
+### Environment Variables
+
+Add to `.env` (optional - defaults are provided):
+```bash
+AIRTABLE_API_KEY=patyvS3W6QpbsXb2u.5d468ceeb4d2169784e6b5cb95f83cb9a1c7ae3b9edf71d7506c101985ca1201
+AIRTABLE_BASE_ID=appUwKSnmMH7TVgvf
+AIRTABLE_TABLE_ID=tbl3xkB7fGkC10CGN
+```
+
+### Component: FileUploadSection
+
+**Location:** `components/FileUploadSection.tsx`
+
+**Props:**
+- `profileId` (number): The profile ID for file association
+- `onUploadSuccess` (function): Callback when upload completes
+
+**Features:**
+- Separate upload sections for company info and slides
+- File type validation
+- File size validation (50MB max)
+- Loading states and success indicators
+- Error handling and user feedback
+
+### Usage in Profile Page
+
+```tsx
+<FileUploadSection 
+  profileId={profile.id}
+  onUploadSuccess={(fileType, airtableRecordId) => {
+    console.log(`✅ ${fileType} uploaded. Airtable ID: ${airtableRecordId}`);
+    fetchProfile(); // Refresh profile data
+  }}
+/>
+```
+
+### Airtable Integration Module
+
+**Location:** `lib/airtable.ts`
+
+**Functions:**
+- `uploadProfileToAirtable()`: Create new profile record in Airtable
+- `updateProfileFilesInAirtable()`: Update file URLs in existing record
+- `getProfileFromAirtable()`: Retrieve profile data from Airtable
+
+### Error Handling
+
+Common errors and solutions:
+- **"File type not allowed"**: Check file extension against allowed list
+- **"File size exceeds 50MB limit"**: Reduce file size
+- **"Profile not found"**: Ensure profile ID is valid
+- **"Airtable API error"**: Check API key and base/table IDs
+
+### Testing File Uploads
+
+1. Navigate to a profile page
+2. Scroll to "Upload Company Files" section
+3. Select a company info file (PDF, DOC, etc.)
+4. Click "Upload"
+5. Verify success message and check Airtable for new record
+6. Repeat for slide template
+
+### Future Enhancements
+
+- Direct file storage in cloud (S3, Azure Blob)
+- File preview functionality
+- Multiple file uploads per type
+- File versioning and history
+- Automatic file format conversion
+
