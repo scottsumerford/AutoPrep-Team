@@ -564,6 +564,14 @@ export async function initializeDatabase(): Promise<void> {
       await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS slides_started_at TIMESTAMP`;
       await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS slides_generated_at TIMESTAMP`;
       console.log('✅ Calendar events table columns updated');
+
+    // Add airtable_record_id column to profiles table
+    try {
+      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS airtable_record_id VARCHAR(255)`;
+      console.log('✅ Profiles table airtable_record_id column added');
+    } catch (error) {
+      console.log('ℹ️ Profiles airtable_record_id column already exists or error updating:', error instanceof Error ? error.message : 'Unknown error');
+    }
     } catch (error) {
       console.log('ℹ️ Calendar events columns already exist or error updating:', error instanceof Error ? error.message : 'Unknown error');
     }
