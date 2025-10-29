@@ -58,6 +58,25 @@ interface TokenStats {
   total: number;
 }
 
+// Helper function to extract the OTHER attendee's email (not the user's)
+// Compares user's email domain against event attendees and returns the OTHER person's email
+function getOtherAttendeeEmail(userEmail: string, attendees?: string[]): string {
+  if (!attendees || attendees.length === 0) {
+    return '';
+  }
+
+  // Extract domain from user's email
+  const userDomain = userEmail.split('@')[1]?.toLowerCase() || '';
+  
+  // Find the first attendee that is NOT on the user's domain
+  const otherAttendee = attendees.find(email => {
+    const attendeeDomain = email.split('@')[1]?.toLowerCase() || '';
+    return attendeeDomain !== userDomain;
+  });
+
+  return otherAttendee || '';
+}
+
 // Helper function to check if a report is stale (processing > 20 minutes)
 function isReportStale(event: CalendarEvent): boolean {
   if (event.presales_report_status !== 'processing') {
@@ -344,6 +363,8 @@ export default function ProfilePage() {
 
   const handleGeneratePresalesReport = async (event: CalendarEvent) => {
     setGeneratingReportId(event.id);
+      // Get the OTHER attendee's email (not the user's)
+      const otherAttendeeEmail = getOtherAttendeeEmail(profile?.email || '', event.attendees);
     try {
       // Call the API endpoint (which handles webhook authentication server-side)
       const response = await fetch('/api/lindy/presales-report', {
@@ -355,7 +376,7 @@ export default function ProfilePage() {
           event_id: event.id,
           event_title: event.title,
           event_description: event.description || '',
-          attendee_email: profile?.email || '',
+          attendee_email: otherAttendeeEmail,
         }),
       });
       
@@ -386,6 +407,8 @@ export default function ProfilePage() {
 
   const handleGenerateSlides = async (event: CalendarEvent) => {
     setGeneratingSlidesId(event.id);
+      // Get the OTHER attendee's email (not the user's)
+      const otherAttendeeEmail = getOtherAttendeeEmail(profile?.email || '', event.attendees);
     try {
       // Call the API endpoint (which handles webhook authentication server-side)
       const response = await fetch('/api/lindy/slides', {
@@ -397,7 +420,7 @@ export default function ProfilePage() {
           event_id: event.id,
           event_title: event.title,
           event_description: event.description || '',
-          attendee_email: profile?.email || '',
+          attendee_email: otherAttendeeEmail,
         }),
       });
       
