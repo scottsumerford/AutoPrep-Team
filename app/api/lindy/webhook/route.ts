@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       
       if (status === 'completed') {
         let finalPdfUrl = pdf_url;
-        let finalReportContent = report_content;
+        const finalReportContent = report_content;
 
         // If we have report content but no PDF URL, generate a PDF
         if (report_content && typeof report_content === 'string' && !pdf_url) {
