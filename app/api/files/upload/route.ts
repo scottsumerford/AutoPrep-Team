@@ -65,7 +65,17 @@ export async function POST(request: NextRequest) {
 
     // Get profile
     console.log('🔍 Fetching profile from database...');
-    const profile = await getProfileById(parseInt(profileId));
+    let profile;
+    try {
+      profile = await getProfileById(parseInt(profileId));
+    } catch (dbError) {
+      console.error('❌ Database error fetching profile:', dbError);
+      return NextResponse.json(
+        { error: 'Database error', message: dbError instanceof Error ? dbError.message : 'Unknown database error' },
+        { status: 500 }
+      );
+    }
+
     if (!profile) {
       console.error('❌ Profile not found:', profileId);
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
@@ -80,7 +90,17 @@ export async function POST(request: NextRequest) {
 
     // Convert file to base64 for storage
     console.log('📝 Converting file to base64...');
-    const buffer = await file.arrayBuffer();
+    let buffer;
+    try {
+      buffer = await file.arrayBuffer();
+    } catch (bufferError) {
+      console.error('❌ Error reading file:', bufferError);
+      return NextResponse.json(
+        { error: 'Error reading file', message: bufferError instanceof Error ? bufferError.message : 'Unknown error' },
+        { status: 400 }
+      );
+    }
+
     const base64 = Buffer.from(buffer).toString('base64');
     const fileUrl = `data:${file.type};base64,${base64}`;
     console.log('✅ File converted to base64, size:', fileUrl.length);
@@ -100,11 +120,11 @@ export async function POST(request: NextRequest) {
         // Update profile with airtable_record_id
         await updateProfile(profile.id, { airtable_record_id: airtableRecordId });
         console.log('✅ Profile updated with airtable_record_id');
-      } catch (error) {
-        console.error('❌ Error creating Airtable record:', error);
-        const errorMsg = error instanceof Error ? error.message : String(error);
+      } catch (airtableError) {
+        console.error('❌ Error creating Airtable record:', airtableError);
+        const errorMsg = airtableError instanceof Error ? airtableError.message : String(airtableError);
         return NextResponse.json(
-          { error: 'Failed to create Airtable record', details: errorMsg },
+          { error: 'Airtable error', message: errorMsg },
           { status: 500 }
         );
       }
@@ -119,8 +139,17 @@ export async function POST(request: NextRequest) {
       updateData.slide_template_url = fileUrl;
     }
 
-    await updateProfile(profile.id, updateData);
-    console.log('✅ Profile updated in database');
+    try {
+      await updateProfile(profile.id, updateData);
+      console.log('✅ Profile updated in database');
+    } catch (updateError) {
+      console.error('❌ Error updating profile:', updateError);
+      const errorMsg = updateError instanceof Error ? updateError.message : String(updateError);
+      return NextResponse.json(
+        { error: 'Database update error', message: errorMsg },
+        { status: 500 }
+      );
+    }
 
     // Update Airtable
     console.log('📝 Updating Airtable record...');
@@ -131,11 +160,11 @@ export async function POST(request: NextRequest) {
         fileType === 'slides' ? fileUrl : undefined
       );
       console.log('✅ Airtable record updated');
-    } catch (error) {
-      console.error('❌ Error updating Airtable:', error);
-      const errorMsg = error instanceof Error ? error.message : String(error);
+    } catch (airtableUpdateError) {
+      console.error('❌ Error updating Airtable:', airtableUpdateError);
+      const errorMsg = airtableUpdateError instanceof Error ? airtableUpdateError.message : String(airtableUpdateError);
       return NextResponse.json(
-        { error: 'Failed to update Airtable', details: errorMsg },
+        { error: 'Airtable update error', message: errorMsg },
         { status: 500 }
       );
     }
@@ -148,12 +177,12 @@ export async function POST(request: NextRequest) {
       fileUrl,
     });
   } catch (error) {
-    console.error('❌ Error uploading file:', error);
+    console.error('❌ Unexpected error uploading file:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('📋 Full error:', errorMessage);
+    console.error('📋 Error message:', errorMessage);
     return NextResponse.json(
       { 
-        error: 'Failed to upload file', 
+        error: 'Unexpected error', 
         message: errorMessage
       },
       { status: 500 }
