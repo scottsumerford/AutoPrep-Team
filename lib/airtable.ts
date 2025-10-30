@@ -28,6 +28,42 @@ interface AirtableErrorResponse {
 }
 
 /**
+ * Find existing profile in Airtable by email
+ */
+export async function findProfileInAirtableByEmail(email: string): Promise<string | null> {
+  try {
+    console.log('🔍 Searching for existing profile in Airtable by email:', email);
+
+    const response = await axios.get(
+      `${AIRTABLE_API_URL}?filterByFormula={Profile Email}="${email}"`,
+      {
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        },
+      }
+    );
+
+    if (response.data.records && response.data.records.length > 0) {
+      const recordId = response.data.records[0].id as string;
+      console.log('✅ Found existing profile in Airtable:', recordId);
+      return recordId;
+    }
+
+    console.log('ℹ️ No existing profile found in Airtable for email:', email);
+    return null;
+  } catch (error) {
+    const axiosError = error as AxiosError<AirtableErrorResponse>;
+    console.error('❌ Error searching for profile in Airtable:', {
+      email,
+      error: error instanceof Error ? error.message : String(error),
+      response: axiosError.response?.data,
+      status: axiosError.response?.status,
+    });
+    return null;
+  }
+}
+
+/**
  * Upload user profile data to Airtable
  * Returns the Airtable record ID which serves as the unique profile ID
  */
@@ -46,6 +82,13 @@ export async function uploadProfileToAirtable(
       hasCompanyInfo: !!companyInfoUrl,
       hasSlides: !!slidesUrl,
     });
+
+    // First check if profile already exists in Airtable
+    const existingRecordId = await findProfileInAirtableByEmail(profileEmail);
+    if (existingRecordId) {
+      console.log('✅ Using existing Airtable record:', existingRecordId);
+      return existingRecordId;
+    }
 
     const record: AirtableRecord = {
       fields: {
