@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       fileType,
       fileName: file?.name,
       fileSize: file?.size,
-      fileType: file?.type,
+      mimeType: file?.type,
     });
 
     // Validation

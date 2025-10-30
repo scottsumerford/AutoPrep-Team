@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY || 'patyvS3W6QpbsXb2u.5d468ceeb4d2169784e6b5cb95f83cb9a1c7ae3b9edf71d7506c101985ca1201';
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || 'appUwKSnmMH7TVgvf';
@@ -18,6 +18,13 @@ interface AirtableResponse {
   id: string;
   fields: AirtableField;
   createdTime: string;
+}
+
+interface AirtableErrorResponse {
+  response?: {
+    data?: Record<string, unknown>;
+    status?: number;
+  };
 }
 
 /**
@@ -68,17 +75,18 @@ export async function uploadProfileToAirtable(
     );
 
     if (response.data.records && response.data.records.length > 0) {
-      const airtableId = response.data.records[0].id;
+      const airtableId = response.data.records[0].id as string;
       console.log(`✅ Profile uploaded to Airtable with ID: ${airtableId}`);
       return airtableId;
     }
 
     throw new Error('No record returned from Airtable');
   } catch (error) {
+    const axiosError = error as AxiosError<AirtableErrorResponse>;
     console.error('❌ Error uploading profile to Airtable:', {
-      error: error instanceof Error ? error.message : error,
-      response: (error as any)?.response?.data,
-      status: (error as any)?.response?.status,
+      error: error instanceof Error ? error.message : String(error),
+      response: axiosError.response?.data,
+      status: axiosError.response?.status,
     });
     throw error;
   }
@@ -131,11 +139,12 @@ export async function updateProfileFilesInAirtable(
 
     console.log(`✅ Airtable record updated: ${airtableRecordId}`);
   } catch (error) {
+    const axiosError = error as AxiosError<AirtableErrorResponse>;
     console.error('❌ Error updating Airtable record:', {
       airtableRecordId,
-      error: error instanceof Error ? error.message : error,
-      response: (error as any)?.response?.data,
-      status: (error as any)?.response?.status,
+      error: error instanceof Error ? error.message : String(error),
+      response: axiosError.response?.data,
+      status: axiosError.response?.status,
     });
     throw error;
   }
@@ -158,13 +167,14 @@ export async function getProfileFromAirtable(airtableRecordId: string): Promise<
     );
 
     console.log('✅ Profile fetched from Airtable');
-    return response.data;
+    return response.data as AirtableResponse;
   } catch (error) {
+    const axiosError = error as AxiosError<AirtableErrorResponse>;
     console.error('❌ Error fetching profile from Airtable:', {
       airtableRecordId,
-      error: error instanceof Error ? error.message : error,
-      response: (error as any)?.response?.data,
-      status: (error as any)?.response?.status,
+      error: error instanceof Error ? error.message : String(error),
+      response: axiosError.response?.data,
+      status: axiosError.response?.status,
     });
     return null;
   }
@@ -188,11 +198,12 @@ export async function deleteProfileFromAirtable(airtableRecordId: string): Promi
 
     console.log('✅ Profile deleted from Airtable');
   } catch (error) {
+    const axiosError = error as AxiosError<AirtableErrorResponse>;
     console.error('❌ Error deleting profile from Airtable:', {
       airtableRecordId,
-      error: error instanceof Error ? error.message : error,
-      response: (error as any)?.response?.data,
-      status: (error as any)?.response?.status,
+      error: error instanceof Error ? error.message : String(error),
+      response: axiosError.response?.data,
+      status: axiosError.response?.status,
     });
     throw error;
   }
