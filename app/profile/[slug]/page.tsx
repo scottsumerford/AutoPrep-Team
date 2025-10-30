@@ -45,6 +45,7 @@ interface CalendarEvent {
   source: 'google' | 'outlook';
   presales_report_status?: 'pending' | 'processing' | 'completed' | 'failed';
   presales_report_url?: string;
+  presales_report_content?: string;
   presales_report_generated_at?: string;
   presales_report_started_at?: string;
   slides_status?: 'pending' | 'processing' | 'completed' | 'failed';
@@ -319,12 +320,17 @@ export default function ProfilePage() {
         const response = await fetch(`/api/lindy/presales-report-status?event_id=${reportPollingId}`);
         const data = await response.json();
 
-        if (data.found && data.reportUrl) {
-          console.log('✅ Report found:', data.reportUrl);
+        if (data.found) {
+          console.log('✅ Report found:', data.reportUrl || 'generating PDF...');
           setEvents(prevEvents =>
             prevEvents.map(e =>
               e.id === reportPollingId
-                ? { ...e, presales_report_status: 'completed', presales_report_url: data.reportUrl }
+                ? { 
+                    ...e, 
+                    presales_report_status: 'completed', 
+                    presales_report_url: data.reportUrl || undefined,
+                    presales_report_content: data.reportContent || e.presales_report_content
+                  }
                 : e
             )
           );
