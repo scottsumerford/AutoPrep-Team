@@ -1,7 +1,7 @@
 # AutoPrep Team Dashboard - Master Agent Guide
 
-**Last Updated:** October 24, 2025  
-**Version:** 1.2.0  
+**Last Updated:** October 29, 2025
+**Version:** 1.3.0
 **Status:** Production Ready
 
 ---
@@ -594,8 +594,8 @@ For issues or questions:
 
 ---
 
-**Last Updated:** October 24, 2025  
-**Version:** 1.2.0  
+**Last Updated:** October 29, 2025
+**Version:** 1.3.0
 **Status:** ✅ Production Ready
 
 ---
@@ -1505,8 +1505,216 @@ gh release create v1.0   # Create release
 
 ---
 
-**Last Updated:** October 24, 2025  
-**Version:** 1.2.0  
+
+---
+
+## 🧪 Development Test Environment (NEW)
+
+### Overview
+
+A dedicated dev test environment has been created on Vercel for testing features before production deployment. This environment uses the same Supabase database as production but is isolated from the main production deployment.
+
+### Dev Test Environment Details
+
+**Environment Name:** `autoprep-team-dev-test`
+
+**Project Information:**
+- **Project ID:** `prj_i0pHHmcM1XQNdz3uBIm37Zjnv48c`
+- **Project URL:** https://vercel.com/scott-s-projects-53d26130/autoprep-team-dev-test
+- **Deployment URL:** https://autoprep-team-dev-test.vercel.app
+- **GitHub Branch:** `main` (auto-deploys on push)
+- **Framework:** Next.js 15.5.3
+- **Package Manager:** Bun
+
+### Database Configuration
+
+**Dev Test Environment Database:**
+- **Type:** PostgreSQL (Supabase)
+- **Host:** `aws-1-us-east-1.pooler.supabase.com`
+- **Port:** `6543` (pooled connection)
+- **Database:** `postgres`
+- **Connection String:** `postgresql://postgres.kmswrzzlirdfnzzbnrpo:imAVAKBD6QwffO2z@aws-1-us-east-1.pooler.supabase.com:6543/postgres`
+- **Status:** ✅ Shared with production (same database)
+
+**Important:** The dev test environment uses the **same Supabase database** as production. This allows testing with real data, but be careful when testing destructive operations.
+
+### Environment Variables
+
+All environment variables are configured for both `development` and `preview` environments:
+
+```bash
+# Database
+POSTGRES_URL=postgresql://postgres.kmswrzzlirdfnzzbnrpo:imAVAKBD6QwffO2z@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+
+# Lindy Agents
+LINDY_PRESALES_AGENT_ID=68aa4cb7ebbc5f9222a2696e
+LINDY_SLIDES_AGENT_ID=68ed392b02927e7ace232732
+
+# Webhook URLs
+LINDY_PRESALES_WEBHOOK_URL=https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa
+LINDY_SLIDES_WEBHOOK_URL=https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4
+
+# Webhook Secrets
+LINDY_PRESALES_WEBHOOK_SECRET=2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07
+LINDY_SLIDES_WEBHOOK_SECRET=f395b62647c72da770de97f7715ee68824864b21b9a2435bdaab7004762359c5
+
+# AirTable
+AIRTABLE_API_KEY=patyvS3W6QpbsXb2u.5d468ceeb4d2169784e6b5cb95f83cb9a1c7ae3b9edf71d7506c101985ca1201
+AIRTABLE_BASE_ID=appUwKSnmMH7TVgvf
+AIRTABLE_TABLE_ID=tbl3xkB7fGkC10CGN
+
+# Application URLs
+NEXT_PUBLIC_APP_URL=https://autoprep-team-dev-test.vercel.app
+LINDY_CALLBACK_URL=https://autoprep-team-dev-test.vercel.app/api/lindy/webhook
+```
+
+### Deployment Workflow
+
+#### Automatic Deployment (Recommended)
+
+The dev test environment is configured to auto-deploy on every push to the `main` branch:
+
+```bash
+# 1. Make changes locally
+# 2. Test locally with: bun run dev
+# 3. Commit and push
+git add -A
+git commit -m "feat: your feature"
+git push origin main
+
+# 4. Vercel automatically deploys to dev test environment
+# 5. Check deployment at: https://autoprep-team-dev-test.vercel.app
+```
+
+#### Manual Deployment
+
+To manually trigger a deployment:
+
+```bash
+export PATH="/var/alt_home/.cache/.bun/bin:$PATH"
+vercel --token dZ0KTwg5DFwRw4hssw3EqzM9 deploy --prod
+```
+
+### Testing Workflow
+
+**Recommended Testing Process:**
+
+1. **Local Testing (Port 3000)**
+   ```bash
+   cd /home/code/AutoPrep-Team
+   bun install
+   bun run dev
+   # Test at http://localhost:3000
+   ```
+
+2. **Dev Test Environment (Vercel)**
+   ```bash
+   # Push to GitHub
+   git push origin main
+   
+   # Wait 1-2 minutes for Vercel deployment
+   # Test at https://autoprep-team-dev-test.vercel.app
+   ```
+
+3. **Production Environment (Vercel)**
+   ```bash
+   # After testing in dev environment
+   # Create a release or tag
+   git tag v1.0.0
+   git push origin v1.0.0
+   
+   # Or manually deploy to production
+   vercel --token dZ0KTwg5DFwRw4hssw3EqzM9 deploy --prod --scope scott-s-projects-53d26130
+   ```
+
+### Monitoring Dev Test Deployments
+
+**Check Deployment Status:**
+
+1. **Vercel Dashboard:**
+   - https://vercel.com/scott-s-projects-53d26130/autoprep-team-dev-test/deployments
+
+2. **View Logs:**
+   ```bash
+   export PATH="/var/alt_home/.cache/.bun/bin:$PATH"
+   vercel logs https://autoprep-team-dev-test.vercel.app --token dZ0KTwg5DFwRw4hssw3EqzM9
+   ```
+
+3. **Check Environment Variables:**
+   - https://vercel.com/scott-s-projects-53d26130/autoprep-team-dev-test/settings/environment-variables
+
+### Troubleshooting Dev Test Environment
+
+**Problem:** Deployment fails
+
+**Solutions:**
+1. Check build logs: https://vercel.com/scott-s-projects-53d26130/autoprep-team-dev-test/deployments
+2. Verify environment variables are set
+3. Check for TypeScript errors: `bun run type-check`
+4. Check for ESLint errors: `bun run lint`
+
+**Problem:** Database connection fails
+
+**Solutions:**
+1. Verify `POSTGRES_URL` is set in Vercel environment variables
+2. Check Supabase status: https://supabase.com/dashboard
+3. Verify firewall allows connection to `aws-1-us-east-1.pooler.supabase.com:6543`
+
+**Problem:** Lindy webhooks not working
+
+**Solutions:**
+1. Verify webhook URLs and secrets are correct
+2. Check that `LINDY_CALLBACK_URL` points to dev test environment
+3. Review Vercel logs for webhook errors
+
+### Comparison: Local vs Dev Test vs Production
+
+| Aspect | Local Dev | Dev Test | Production |
+|--------|-----------|----------|------------|
+| **URL** | http://localhost:3000 | https://autoprep-team-dev-test.vercel.app | https://team.autoprep.ai |
+| **Database** | Local PostgreSQL (localhost:5432) | Supabase (shared with prod) | Supabase |
+| **Auto-Deploy** | Manual (`bun run dev`) | On push to main | On release/tag |
+| **Environment** | development | preview/development | production |
+| **Use Case** | Feature development | Testing before prod | Live users |
+| **Data Isolation** | Separate local DB | Shared with production | Live data |
+
+### Best Practices
+
+✅ **DO:**
+- Use dev test environment to test features before production
+- Test all Lindy agent integrations in dev test
+- Verify database operations work correctly
+- Test webhook callbacks
+- Monitor deployment logs
+
+❌ **DON'T:**
+- Delete production data while testing in dev test (shared database)
+- Deploy untested code to production
+- Commit sensitive credentials to GitHub
+- Use dev test for load testing (shared resources)
+
+### Quick Reference Commands
+
+```bash
+# View dev test environment
+export PATH="/var/alt_home/.cache/.bun/bin:$PATH"
+vercel list --token dZ0KTwg5DFwRw4hssw3EqzM9
+
+# View deployments
+vercel deployments --token dZ0KTwg5DFwRw4hssw3EqzM9
+
+# View logs
+vercel logs https://autoprep-team-dev-test.vercel.app --token dZ0KTwg5DFwRw4hssw3EqzM9
+
+# Redeploy
+vercel redeploy --token dZ0KTwg5DFwRw4hssw3EqzM9
+```
+
+---
+
+
+**Last Updated:** October 29, 2025
+**Version:** 1.3.0
 **Status:** ✅ Production Ready with Complete Deployment Guide
 
 ---
