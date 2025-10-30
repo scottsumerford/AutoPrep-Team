@@ -729,7 +729,6 @@ export default function ProfilePage() {
                 </div>
               </CardContent>
             </Card>
-          </div>
 
             {/* File Upload Section */}
             <FileUploadSection 
@@ -745,6 +744,7 @@ export default function ProfilePage() {
             <GeneratedReportsSection 
               events={events}
             />
+          </div>
 
           {/* Calendar and Events */}
           <div className="lg:col-span-2 space-y-8">
