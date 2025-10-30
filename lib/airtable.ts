@@ -32,6 +32,14 @@ export async function uploadProfileToAirtable(
   slidesUrl?: string
 ): Promise<string> {
   try {
+    console.log('📝 uploadProfileToAirtable called with:', {
+      profileId,
+      profileName,
+      profileEmail,
+      hasCompanyInfo: !!companyInfoUrl,
+      hasSlides: !!slidesUrl,
+    });
+
     const record: AirtableRecord = {
       fields: {
         'Profile ID': profileId,
@@ -42,6 +50,11 @@ export async function uploadProfileToAirtable(
         'Created At': new Date().toISOString(),
       },
     };
+
+    console.log('📤 Sending POST request to Airtable:', {
+      url: AIRTABLE_API_URL,
+      fields: record.fields,
+    });
 
     const response = await axios.post(
       AIRTABLE_API_URL,
@@ -62,7 +75,11 @@ export async function uploadProfileToAirtable(
 
     throw new Error('No record returned from Airtable');
   } catch (error) {
-    console.error('❌ Error uploading profile to Airtable:', error);
+    console.error('❌ Error uploading profile to Airtable:', {
+      error: error instanceof Error ? error.message : error,
+      response: (error as any)?.response?.data,
+      status: (error as any)?.response?.status,
+    });
     throw error;
   }
 }
@@ -76,6 +93,12 @@ export async function updateProfileFilesInAirtable(
   slidesUrl?: string
 ): Promise<void> {
   try {
+    console.log('📝 updateProfileFilesInAirtable called with:', {
+      airtableRecordId,
+      hasCompanyInfo: !!companyInfoUrl,
+      hasSlides: !!slidesUrl,
+    });
+
     const fields: AirtableField = {};
     
     if (companyInfoUrl) {
@@ -90,6 +113,11 @@ export async function updateProfileFilesInAirtable(
       return;
     }
 
+    console.log('📤 Sending PATCH request to Airtable:', {
+      url: `${AIRTABLE_API_URL}/${airtableRecordId}`,
+      fields: Object.keys(fields),
+    });
+
     await axios.patch(
       `${AIRTABLE_API_URL}/${airtableRecordId}`,
       { fields },
@@ -101,9 +129,14 @@ export async function updateProfileFilesInAirtable(
       }
     );
 
-    console.log(`✅ Profile updated in Airtable: ${airtableRecordId}`);
+    console.log(`✅ Airtable record updated: ${airtableRecordId}`);
   } catch (error) {
-    console.error('❌ Error updating profile in Airtable:', error);
+    console.error('❌ Error updating Airtable record:', {
+      airtableRecordId,
+      error: error instanceof Error ? error.message : error,
+      response: (error as any)?.response?.data,
+      status: (error as any)?.response?.status,
+    });
     throw error;
   }
 }
@@ -113,6 +146,8 @@ export async function updateProfileFilesInAirtable(
  */
 export async function getProfileFromAirtable(airtableRecordId: string): Promise<AirtableResponse | null> {
   try {
+    console.log('🔍 Fetching profile from Airtable:', airtableRecordId);
+
     const response = await axios.get(
       `${AIRTABLE_API_URL}/${airtableRecordId}`,
       {
@@ -122,9 +157,43 @@ export async function getProfileFromAirtable(airtableRecordId: string): Promise<
       }
     );
 
+    console.log('✅ Profile fetched from Airtable');
     return response.data;
   } catch (error) {
-    console.error('❌ Error fetching profile from Airtable:', error);
+    console.error('❌ Error fetching profile from Airtable:', {
+      airtableRecordId,
+      error: error instanceof Error ? error.message : error,
+      response: (error as any)?.response?.data,
+      status: (error as any)?.response?.status,
+    });
     return null;
+  }
+}
+
+/**
+ * Delete profile from Airtable
+ */
+export async function deleteProfileFromAirtable(airtableRecordId: string): Promise<void> {
+  try {
+    console.log('🗑️ Deleting profile from Airtable:', airtableRecordId);
+
+    await axios.delete(
+      `${AIRTABLE_API_URL}/${airtableRecordId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        },
+      }
+    );
+
+    console.log('✅ Profile deleted from Airtable');
+  } catch (error) {
+    console.error('❌ Error deleting profile from Airtable:', {
+      airtableRecordId,
+      error: error instanceof Error ? error.message : error,
+      response: (error as any)?.response?.data,
+      status: (error as any)?.response?.status,
+    });
+    throw error;
   }
 }
