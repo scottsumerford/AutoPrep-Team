@@ -102,7 +102,11 @@ export async function POST(request: NextRequest) {
         console.log('✅ Profile updated with airtable_record_id');
       } catch (error) {
         console.error('❌ Error creating Airtable record:', error);
-        throw error;
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        return NextResponse.json(
+          { error: 'Failed to create Airtable record', details: errorMsg },
+          { status: 500 }
+        );
       }
     }
 
@@ -129,7 +133,11 @@ export async function POST(request: NextRequest) {
       console.log('✅ Airtable record updated');
     } catch (error) {
       console.error('❌ Error updating Airtable:', error);
-      throw error;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return NextResponse.json(
+        { error: 'Failed to update Airtable', details: errorMsg },
+        { status: 500 }
+      );
     }
 
     console.log('✅ File upload completed successfully');
@@ -141,16 +149,14 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('❌ Error uploading file:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('📋 Error details:', errorMessage);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('📋 Full error:', errorMessage);
     return NextResponse.json(
       { 
         error: 'Failed to upload file', 
-        details: errorMessage,
-        timestamp: new Date().toISOString()
+        message: errorMessage
       },
       { status: 500 }
     );
   }
 }
-// Force redeployment - Wed Oct 29 21:31:36 CDT 2025
