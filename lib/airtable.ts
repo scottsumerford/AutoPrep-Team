@@ -47,7 +47,7 @@ export async function uploadProfileToAirtable(
         'Profile Email': profileEmail,
         'Company Info URL': companyInfoUrl || '',
         'Slides URL': slidesUrl || '',
-        'Created At': new Date().toISOString(),
+        'Created At': new Date().toISOString().split('T')[0],
       },
     };
 
