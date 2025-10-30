@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
         // Update database with report
         if (finalPdfUrl || finalReportContent) {
           await updateEventPresalesStatus(
-            calendar_event_id, 
+            parseInt(calendar_event_id as string), 
             'completed', 
             finalPdfUrl || undefined,
             finalReportContent || undefined
@@ -115,10 +115,10 @@ export async function POST(request: NextRequest) {
           });
         } else {
           console.warn('⚠️ Pre-sales webhook completed but no PDF URL or report content provided');
-          await updateEventPresalesStatus(calendar_event_id, 'completed');
+          await updateEventPresalesStatus(parseInt(calendar_event_id as string), 'completed');
         }
       } else if (status === 'failed') {
-        await updateEventPresalesStatus(calendar_event_id, 'failed');
+        await updateEventPresalesStatus(parseInt(calendar_event_id as string), 'failed');
         console.log('❌ Pre-sales report marked as failed:', error_message);
       } else {
         console.warn('⚠️ Pre-sales webhook received with unexpected status:', status);
@@ -130,10 +130,10 @@ export async function POST(request: NextRequest) {
       console.log('📊 Processing slides generation webhook');
       
       if (status === 'completed' && slides_url) {
-        await updateEventSlidesStatus(calendar_event_id, 'completed', slides_url);
+        await updateEventSlidesStatus(parseInt(calendar_event_id as string), 'completed', slides_url);
         console.log('✅ Slides marked as completed with URL:', slides_url);
       } else if (status === 'failed') {
-        await updateEventSlidesStatus(calendar_event_id, 'failed');
+        await updateEventSlidesStatus(parseInt(calendar_event_id as string), 'failed');
         console.log('❌ Slides marked as failed:', error_message);
       } else {
         console.warn('⚠️ Slides webhook received but status or slides_url missing:', { status, slides_url });
