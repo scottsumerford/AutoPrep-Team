@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY || 'patyvS3W6QpbsXb2u.5d468ceeb4d2169784e6b5cb95f83cb9a1c7ae3b9edf71d7506c101985ca1201';
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || 'appUwKSnmMH7TVgvf';
-const AIRTABLE_TABLE_ID = process.env.AIRTABLE_TABLE_ID || 'tbl3xkB7fGkC10CGN';
+const AIRTABLE_TABLE_ID = process.env.AIRTABLE_TABLE_ID || 'tbl2mjvZZG6ExhNbC';
 
 const AIRTABLE_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_ID}`;
 
