@@ -56,6 +56,7 @@ export interface CalendarEvent {
   source: 'google' | 'outlook';
   presales_report_status?: 'pending' | 'processing' | 'completed' | 'failed';
   presales_report_url?: string;
+  presales_report_content?: string;
   presales_report_generated_at?: Date;
   presales_report_started_at?: Date;
   slides_status?: 'pending' | 'processing' | 'completed' | 'failed';
@@ -541,6 +542,7 @@ export async function initializeDatabase(): Promise<void> {
           source VARCHAR(50) NOT NULL,
           presales_report_status VARCHAR(50) DEFAULT 'pending',
           presales_report_url TEXT,
+          presales_report_content TEXT,
           presales_report_started_at TIMESTAMP,
           presales_report_generated_at TIMESTAMP,
           slides_status VARCHAR(50) DEFAULT 'pending',
@@ -559,6 +561,7 @@ export async function initializeDatabase(): Promise<void> {
       await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS presales_report_url TEXT`;
       await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS presales_report_started_at TIMESTAMP`;
       await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS presales_report_generated_at TIMESTAMP`;
+      await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS presales_report_content TEXT`;
       await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS slides_status VARCHAR(50) DEFAULT 'pending'`;
       await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS slides_url TEXT`;
       await sql`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS slides_started_at TIMESTAMP`;
@@ -679,7 +682,8 @@ export async function getTotalTokensByType(profileId: number): Promise<{
 export async function updateEventPresalesStatus(
   eventId: number,
   status: 'pending' | 'processing' | 'completed' | 'failed',
-  reportUrl?: string
+  reportUrl?: string,
+  reportContent?: string
 ): Promise<CalendarEvent | null> {
   if (!isDatabaseConfigured()) {
     console.log(`📝 Updating presales status for event ${eventId} in memory`);
@@ -687,6 +691,7 @@ export async function updateEventPresalesStatus(
     if (!event) return null;
     event.presales_report_status = status;
     if (reportUrl) event.presales_report_url = reportUrl;
+    if (reportContent) event.presales_report_content = reportContent;
     if (status === 'completed') event.presales_report_generated_at = new Date();
     if (status === 'processing') event.presales_report_started_at = new Date();
     return event;
@@ -699,6 +704,7 @@ export async function updateEventPresalesStatus(
       SET 
         presales_report_status = ${status},
         presales_report_url = ${reportUrl || null},
+        presales_report_content = ${reportContent || null},
         presales_report_started_at = ${status === 'processing' ? new Date() : null},
         presales_report_generated_at = ${status === 'completed' ? new Date() : null}
       WHERE id = ${eventId}
@@ -711,6 +717,7 @@ export async function updateEventPresalesStatus(
     return null;
   }
 }
+
 
 // Update event slides status
 export async function updateEventSlidesStatus(

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateEventPresalesStatus, getEventById } from '@/lib/db';
+import { generatePdfFromContent, bufferToDataUrl } from '@/lib/pdf-generator';
 
 interface AirTableRecord {
   id: string;
@@ -17,6 +18,7 @@ interface AirTableResponse {
  * 
  * Polls for the generated pre-sales report.
  * First checks the database, then falls back to AirTable.
+ * If report content is found, generates a PDF and stores it.
  * Returns:
  * - PDF URL (for download)
  * - Report Content (text document version)
@@ -55,7 +57,7 @@ export async function GET(request: NextRequest) {
         found: true,
         status: 'completed',
         reportUrl: event.presales_report_url,
-        reportContent: null,
+        reportContent: event.presales_report_content || null,
         source: 'database'
       });
     }
@@ -123,19 +125,43 @@ export async function GET(request: NextRequest) {
         hasReportContent: !!reportContent
       });
 
-      // Update the database with the report URL
-      if (reportUrl && typeof reportUrl === 'string') {
-        console.log('💾 [PRESALES_STATUS] Updating database with report URL from AirTable');
-        await updateEventPresalesStatus(parseInt(eventId), 'completed', reportUrl);
-        console.log('✅ [PRESALES_STATUS] Database updated with report URL');
+      let pdfUrl: string | undefined = typeof reportUrl === 'string' ? reportUrl : undefined;
+      const storedContent: string | undefined = typeof reportContent === 'string' ? reportContent : undefined;
+
+      // If we have report content but no PDF URL, generate a PDF
+      if (reportContent && typeof reportContent === 'string' && !pdfUrl) {
+        console.log('📄 [PRESALES_STATUS] Generating PDF from report content...');
+        try {
+          const pdfBuffer = await generatePdfFromContent(
+            reportContent,
+            `Pre-Sales Report - ${event.title}`
+          );
+          pdfUrl = bufferToDataUrl(pdfBuffer, 'application/pdf');
+          console.log('✅ [PRESALES_STATUS] PDF generated successfully');
+        } catch (pdfError) {
+          console.error('❌ [PRESALES_STATUS] Error generating PDF:', pdfError);
+          // Continue without PDF, we still have the content
+        }
+      }
+
+      // Update the database with the report URL and content
+      if ((pdfUrl && typeof pdfUrl === 'string') || (storedContent && typeof storedContent === 'string')) {
+        console.log('💾 [PRESALES_STATUS] Updating database with report from AirTable');
+        await updateEventPresalesStatus(
+          parseInt(eventId), 
+          'completed', 
+          pdfUrl || undefined,
+          storedContent || undefined
+        );
+        console.log('✅ [PRESALES_STATUS] Database updated with report');
       }
 
       return NextResponse.json({
         success: true,
         found: true,
         status,
-        reportUrl,
-        reportContent: reportContent || null,
+        reportUrl: pdfUrl,
+        reportContent: storedContent || null,
         recordId: matchingRecord.id,
         source: 'airtable'
       });
