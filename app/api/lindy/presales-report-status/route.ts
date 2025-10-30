@@ -17,8 +17,9 @@ interface AirTableResponse {
  * GET /api/lindy/presales-report-status?event_id=123
  * 
  * Polls for the generated pre-sales report.
- * First checks the database, then falls back to AirTable.
- * If report content is found, generates a PDF and stores it.
+ * 1. First checks the database
+ * 2. Then queries AirTable for "Report Content" field matching calendarEventId
+ * 3. If report content is found, generates a PDF and stores it
  * Returns:
  * - PDF URL (for download)
  * - Report Content (text document version)
@@ -81,6 +82,7 @@ export async function GET(request: NextRequest) {
     const airtableUrl = `https://api.airtable.com/v0/${airtableBaseId}/${airtableTableId}`;
     
     console.log('🌐 [PRESALES_STATUS] Querying AirTable:', airtableUrl);
+    console.log('🔍 [PRESALES_STATUS] Looking for record with Calendar Event ID:', eventId);
 
     const airtableResponse = await fetch(airtableUrl, {
       method: 'GET',
@@ -104,56 +106,80 @@ export async function GET(request: NextRequest) {
 
     // Search for a record matching the event ID
     const records = airtableData.records || [];
+    console.log('🔎 [PRESALES_STATUS] Searching through', records.length, 'records for matching Calendar Event ID');
+
     const matchingRecord = records.find((record: AirTableRecord) => {
       const fields = record.fields || {};
-      // Look for a field that contains the event ID or calendar event ID
-      return fields['Calendar Event ID'] === eventId.toString() || 
-             fields['Event ID'] === eventId.toString() ||
-             fields['event_id'] === eventId.toString();
+      const calendarEventId = fields['Calendar Event ID'] || fields['calendar_event_id'] || fields['Event ID'] || fields['event_id'];
+      
+      console.log(`  📋 Checking record ${record.id}:`, {
+        calendarEventId,
+        hasReportContent: !!fields['Report Content'],
+        hasReportUrl: !!fields['Report URL']
+      });
+
+      // Match by Calendar Event ID (as string comparison)
+      return calendarEventId?.toString() === eventId.toString();
     });
 
     if (matchingRecord) {
       const fields = matchingRecord.fields || {};
+      const reportContent = fields['Report Content'] || fields['report_content'];
       const reportUrl = fields['Report URL'] || fields['PDF URL'] || fields['report_url'];
-      const reportContent = fields['Report Content'] || fields['report_content'] || null;
       const status = fields['Status'] || fields['status'] || 'completed';
 
       console.log('✅ [PRESALES_STATUS] Report found in AirTable:', {
         recordId: matchingRecord.id,
         status,
-        reportUrl,
-        hasReportContent: !!reportContent
+        hasReportUrl: !!reportUrl,
+        hasReportContent: !!reportContent,
+        reportContentLength: typeof reportContent === 'string' ? reportContent.length : 0
       });
 
-      let pdfUrl: string | undefined = typeof reportUrl === 'string' ? reportUrl : undefined;
+      let pdfUrl: string | undefined;
       const storedContent: string | undefined = typeof reportContent === 'string' ? reportContent : undefined;
 
-      // If we have report content but no PDF URL, generate a PDF
-      if (reportContent && typeof reportContent === 'string' && !pdfUrl) {
+      // If we have report content, generate a PDF
+      if (reportContent && typeof reportContent === 'string') {
         console.log('📄 [PRESALES_STATUS] Generating PDF from report content...');
+        console.log('📝 [PRESALES_STATUS] Report content length:', reportContent.length, 'characters');
+        
         try {
           const pdfBuffer = await generatePdfFromContent(
             reportContent,
             `Pre-Sales Report - ${event.title}`
           );
           pdfUrl = bufferToDataUrl(pdfBuffer, 'application/pdf');
-          console.log('✅ [PRESALES_STATUS] PDF generated successfully');
+          console.log('✅ [PRESALES_STATUS] PDF generated successfully, size:', pdfBuffer.length, 'bytes');
         } catch (pdfError) {
           console.error('❌ [PRESALES_STATUS] Error generating PDF:', pdfError);
           // Continue without PDF, we still have the content
         }
+      } else if (reportUrl && typeof reportUrl === 'string') {
+        // If there's already a report URL in AirTable, use it
+        pdfUrl = reportUrl;
+        console.log('✅ [PRESALES_STATUS] Using existing Report URL from AirTable:', pdfUrl);
       }
 
       // Update the database with the report URL and content
       if ((pdfUrl && typeof pdfUrl === 'string') || (storedContent && typeof storedContent === 'string')) {
         console.log('💾 [PRESALES_STATUS] Updating database with report from AirTable');
-        await updateEventPresalesStatus(
+        const updatedEvent = await updateEventPresalesStatus(
           parseInt(eventId), 
           'completed', 
           pdfUrl || undefined,
           storedContent || undefined
         );
         console.log('✅ [PRESALES_STATUS] Database updated with report');
+        
+        if (updatedEvent) {
+          console.log('📊 [PRESALES_STATUS] Updated event:', {
+            id: updatedEvent.id,
+            status: updatedEvent.presales_report_status,
+            hasPdfUrl: !!updatedEvent.presales_report_url,
+            hasContent: !!updatedEvent.presales_report_content
+          });
+        }
       }
 
       return NextResponse.json({
@@ -167,7 +193,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log('⏳ [PRESALES_STATUS] Report not yet available');
+    console.log('⏳ [PRESALES_STATUS] Report not yet available in AirTable');
+    console.log('📋 [PRESALES_STATUS] Available records in AirTable:');
+    records.forEach((record: AirTableRecord) => {
+      const fields = record.fields || {};
+      const calendarEventId = fields['Calendar Event ID'] || fields['calendar_event_id'] || fields['Event ID'] || fields['event_id'];
+      console.log(`  - Record ${record.id}: Calendar Event ID = ${calendarEventId}`);
+    });
 
     return NextResponse.json({
       success: true,
