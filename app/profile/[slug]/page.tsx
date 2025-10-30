@@ -20,6 +20,7 @@ import {
 import Link from 'next/link';
 import { FileUploadSection } from '@/components/FileUploadSection';
 import { CalendarView } from './calendar-view';
+import { GeneratedReportsSection } from '@/components/GeneratedReportsSection';
 
 interface Profile {
   id: number;
@@ -738,6 +739,12 @@ export default function ProfilePage() {
                 // Optionally refresh profile data
                 fetchProfile();
               }}
+            />
+
+            {/* Generated Reports Section */}
+            <GeneratedReportsSection 
+              profileId={profile.id}
+              events={events}
             />
 
           {/* Calendar and Events */}
