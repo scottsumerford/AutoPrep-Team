@@ -743,7 +743,6 @@ export default function ProfilePage() {
 
             {/* Generated Reports Section */}
             <GeneratedReportsSection 
-              profileId={profile.id}
               events={events}
             />
 
