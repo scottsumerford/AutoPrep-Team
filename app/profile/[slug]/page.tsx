@@ -836,17 +836,24 @@ export default function ProfilePage() {
                                   Generating Report... {reportTimeRemaining[event.id] && `(${reportTimeRemaining[event.id]})`}
                                 </Button>
                               )}
-                              {event.presales_report_status === 'completed' && event.presales_report_url && (
+{event.presales_report_status === 'completed' && (
                                 <div className="flex items-center gap-2">
-                                  <a
-                                    href={event.presales_report_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 hover:bg-green-100"
-                                  >
-                                    <Download className="w-4 h-4" />
-                                    Download PDF
-                                  </a>
+                                  {event.presales_report_url ? (
+                                    <a
+                                      href={event.presales_report_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 hover:bg-green-100"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                      Download PDF
+                                    </a>
+                                  ) : (
+                                    <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                      Report Ready
+                                    </div>
+                                  )}
                                   {reportContent[event.id] && (
                                     <button
                                       onClick={() => {
