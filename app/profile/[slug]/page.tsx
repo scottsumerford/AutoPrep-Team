@@ -128,7 +128,7 @@ function getOtherAttendeeEmail(userEmail: string, attendees?: string[]): string 
 }
 
 
-// Helper function to check if a report is stale (processing > 20 minutes)
+// Helper function to check if a report is stale (processing > 15 minutes)
 function isReportStale(event: CalendarEvent): boolean {
   if (event.presales_report_status !== 'processing') {
     return false;
@@ -139,19 +139,24 @@ function isReportStale(event: CalendarEvent): boolean {
     return false;
   }
   
-  // Check if presales_report_started_at is more than 20 minutes ago
+  // Check if presales_report_started_at is more than 15 minutes ago
   if (!event.presales_report_started_at) {
     return false;
   }
   
   const startedTime = new Date(event.presales_report_started_at).getTime();
   const now = new Date().getTime();
-  const twentyMinutesMs = 20 * 60 * 1000;
+  const fifteenMinutesMs = 15 * 60 * 1000;
   
-  return (now - startedTime) > twentyMinutesMs;
+  return (now - startedTime) > fifteenMinutesMs;
 }
 
-// Helper function to check if slides are stale (processing > 20 minutes)
+// Helper function to check if a report is ready but waiting for PDF (completed but no URL)
+function isReportReadyButNoPdf(event: CalendarEvent): boolean {
+  return event.presales_report_status === 'completed' && !event.presales_report_url;
+}
+
+// Helper function to check if slides are stale (processing > 15 minutes)
 function areSlidesStale(event: CalendarEvent): boolean {
   if (event.slides_status !== 'processing') {
     return false;
@@ -162,25 +167,30 @@ function areSlidesStale(event: CalendarEvent): boolean {
     return false;
   }
   
-  // Check if slides_started_at is more than 20 minutes ago
+  // Check if slides_started_at is more than 15 minutes ago
   if (!event.slides_started_at) {
     return false;
   }
   
   const startedTime = new Date(event.slides_started_at).getTime();
   const now = new Date().getTime();
-  const twentyMinutesMs = 20 * 60 * 1000;
+  const fifteenMinutesMs = 15 * 60 * 1000;
   
-  return (now - startedTime) > twentyMinutesMs;
+  return (now - startedTime) > fifteenMinutesMs;
+}
+
+// Helper function to check if slides are ready but waiting for URL (completed but no URL)
+function areSlidesReadyButNoUrl(event: CalendarEvent): boolean {
+  return event.slides_status === 'completed' && !event.slides_url;
 }
 
 // Helper function to format remaining time
 function formatTimeRemaining(startedAt: string): string {
   const startedTime = new Date(startedAt).getTime();
   const now = new Date().getTime();
-  const twentyMinutesMs = 20 * 60 * 1000;
+  const fifteenMinutesMs = 15 * 60 * 1000;
   const elapsedMs = now - startedTime;
-  const remainingMs = Math.max(0, twentyMinutesMs - elapsedMs);
+  const remainingMs = Math.max(0, fifteenMinutesMs - elapsedMs);
   
   const minutes = Math.floor(remainingMs / 60000);
   const seconds = Math.floor((remainingMs % 60000) / 1000);
@@ -279,8 +289,7 @@ export default function ProfilePage() {
       setEvents(prevEvents => {
         const event = prevEvents.find(e => e.id === reportPollingId);
         if (event && event.presales_report_started_at) {
-          setReportTimeRemaining(prev => ({
-            ...prev,
+          setReportTimeRemaining(prev => ({\n            ...prev,
             [reportPollingId]: formatTimeRemaining(event.presales_report_started_at || "")
           }));
         }
@@ -299,8 +308,7 @@ export default function ProfilePage() {
       setEvents(prevEvents => {
         const event = prevEvents.find(e => e.id === slidesPollingId);
         if (event && event.slides_started_at) {
-          setSlidesTimeRemaining(prev => ({
-            ...prev,
+          setSlidesTimeRemaining(prev => ({\n            ...prev,
             [slidesPollingId]: formatTimeRemaining(event.slides_started_at || "")
           }));
         }
@@ -336,8 +344,7 @@ export default function ProfilePage() {
           );
           // Store report content if available
           if (data.reportContent) {
-            setReportContent(prev => ({
-              ...prev,
+            setReportContent(prev => ({\n              ...prev,
               [reportPollingId]: data.reportContent
             }));
           }
@@ -450,9 +457,8 @@ export default function ProfilePage() {
         ));
         // Start polling for the report
         setReportPollingId(event.id);
-        setReportTimeRemaining(prev => ({
-          ...prev,
-          [event.id]: '20:00'
+        setReportTimeRemaining(prev => ({\n          ...prev,
+          [event.id]: '15:00'
         }));
       } else {
         console.error('❌ Failed to generate pre-sales report');
@@ -494,9 +500,8 @@ export default function ProfilePage() {
         ));
         // Start polling for the slides
         setSlidesPollingId(event.id);
-        setSlidesTimeRemaining(prev => ({
-          ...prev,
-          [event.id]: '20:00'
+        setSlidesTimeRemaining(prev => ({\n          ...prev,
+          [event.id]: '15:00'
         }));
       } else {
         console.error('❌ Failed to generate slides');
@@ -845,7 +850,7 @@ export default function ProfilePage() {
                                   Generating Report... {reportTimeRemaining[event.id] && `(${reportTimeRemaining[event.id]})`}
                                 </Button>
                               )}
-{event.presales_report_status === 'completed' && (
+                              {event.presales_report_status === 'completed' && (
                                 <div className="flex items-center gap-2">
                                   {event.presales_report_url ? (
                                     <a
@@ -858,10 +863,25 @@ export default function ProfilePage() {
                                       Download PDF
                                     </a>
                                   ) : (
-                                    <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                      Report Ready
-                                    </div>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={() => handleGeneratePresalesReport(event)}
+                                      disabled={generatingReportId === event.id}
+                                      className="bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100"
+                                    >
+                                      {generatingReportId === event.id ? (
+                                        <>
+                                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                          Retrying...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <FileText className="w-4 h-4 mr-2" />
+                                          Try again
+                                        </>
+                                      )}
+                                    </Button>
                                   )}
                                   {reportContent[event.id] && (
                                     <button
@@ -966,11 +986,47 @@ export default function ProfilePage() {
                                   Download Slides
                                 </a>
                               )}
+                              {event.slides_status === 'completed' && !event.slides_url && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleGenerateSlides(event)}
+                                  disabled={generatingSlidesId === event.id}
+                                  className="bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100"
+                                >
+                                  {generatingSlidesId === event.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Retrying...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Presentation className="w-4 h-4 mr-2" />
+                                      Try again
+                                    </>
+                                  )}
+                                </Button>
+                              )}
                               {event.slides_status === 'failed' && (
-                                <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                                  <Presentation className="w-4 h-4" />
-                                  Slides Failed
-                                </div>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleGenerateSlides(event)}
+                                  disabled={generatingSlidesId === event.id}
+                                  className="bg-red-50 border border-red-200 text-red-700 hover:bg-red-100"
+                                >
+                                  {generatingSlidesId === event.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Retrying...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Presentation className="w-4 h-4 mr-2" />
+                                      Try again
+                                    </>
+                                  )}
+                                </Button>
                               )}
                               {areSlidesStale(event) && (
                                 <Button 
