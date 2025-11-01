@@ -1,31 +1,42 @@
-# Version 1.0 Documentation Archive
+# Version 1.0 Reference Files
 
-This folder contains all markdown documentation files from the AutoPrep Version 1.0 development cycle. These files are preserved for historical reference and documentation purposes as the project transitions to Version 2.0.
+## Overview
 
-## Contents
+This folder contains all Version 1.0 reference documentation and historical files from the AutoPrep system's initial development phase. These files serve as a comprehensive archive of the system's evolution and design decisions.
 
-This archive includes 87 markdown files documenting:
+## Purpose
 
-- **Agent Setup & Configuration**: Agent creation, setup, and integration guides
-- **Deployment Documentation**: Deployment procedures, status reports, and guides
-- **Production Issues & Fixes**: Production deployment issues, fixes, and investigations
-- **Feature Implementation**: Feature development and implementation summaries
-- **Testing & Verification**: Testing procedures and verification checklists
-- **Database Configuration**: Database setup and connection documentation
-- **Webhook Integration**: Webhook setup and integration guides
-- **Calendar & Airtable Integration**: Integration documentation and fixes
-- **Code Reviews & Changes**: Code review reports and change summaries
+These markdown files document:
+- Initial system architecture and design
+- Development progress and milestones
+- Bug fixes and issue resolutions
+- Deployment procedures and configurations
+- Agent setup and integration guides
+- Testing summaries and verification checklists
+- Production deployment records
 
-## Organization
+## Important Notes
 
-All files are organized alphabetically by filename for easy reference.
+⚠️ **Historical Reference Only**: These files represent Version 1.0 of the AutoPrep system and are maintained for historical reference and context. They should not be modified to preserve the integrity of the development record.
 
 ## Version 2.0 Development
 
-For current Version 2.0 development, please refer to the root directory and main project files. This folder is maintained as a reference archive only.
+The current Version 2.0 development code is located in the root directory of this repository:
+- `/app` - Application code
+- `/components` - React components
+- `/lib` - Utility libraries
+- `/public` - Static assets
+- `package.json` - Project dependencies
+
+## File Organization
+
+All 87 Version 1.0 markdown files have been organized in this folder to maintain a clear separation between:
+- **V1 Reference** (this folder) - Historical documentation
+- **V2 Development** (root directory) - Current active codebase
+
+This separation ensures that the development environment remains clean and focused on Version 2.0 while preserving complete historical documentation.
 
 ---
 
-**Archive Created**: October 31, 2025
+**Last Updated**: October 31, 2025
 **Total Files**: 87 markdown documents
-**Purpose**: Historical reference and documentation preservation
