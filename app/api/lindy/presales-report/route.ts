@@ -9,7 +9,7 @@ import { updateEventPresalesStatus, getEventById, markStalePresalesRuns, getProf
  */
 export async function POST(request: NextRequest) {
   try {
-    // Mark any stale presales runs as failed (> 15 minutes)
+    // Mark any stale presales runs as failed (> 20 minutes)
     await markStalePresalesRuns();
 
     const body = await request.json();
