@@ -1,24 +1,17 @@
 import PDFDocument from 'pdfkit';
-import { Readable } from 'stream';
 
 /**
- * Generate a PDF from report content
- * Returns a Buffer containing the PDF data
+ * Generate a PDF from text content
+ * @param content - The text content to include in the PDF
+ * @param title - The title of the PDF document
+ * @returns Buffer containing the PDF data
  */
-export async function generatePdfFromContent(
-  reportContent: string,
-  title: string = 'Pre-Sales Report'
-): Promise<Buffer> {
+export async function generatePdfFromContent(content: string, title: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({
-        size: 'A4',
-        margin: 50,
-      });
-
+      const doc = new PDFDocument();
       const chunks: Buffer[] = [];
 
-      // Collect PDF data
       doc.on('data', (chunk: Buffer) => {
         chunks.push(chunk);
       });
@@ -33,42 +26,15 @@ export async function generatePdfFromContent(
       });
 
       // Add title
-      doc.fontSize(24).font('Helvetica-Bold').text(title, { align: 'center' });
-      doc.moveDown();
-
-      // Add timestamp
-      doc.fontSize(10).font('Helvetica').fillColor('#666666');
-      doc.text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' });
-      doc.moveDown();
-
-      // Add horizontal line
-      doc.strokeColor('#cccccc').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+      doc.fontSize(20).font('Helvetica-Bold').text(title, { align: 'center' });
       doc.moveDown();
 
       // Add content
-      doc.fontSize(11).font('Helvetica').fillColor('#000000');
-      
-      // Split content into paragraphs and add to PDF
-      const paragraphs = reportContent.split('\n\n');
-      paragraphs.forEach((paragraph, index) => {
-        if (paragraph.trim()) {
-          // Check if this looks like a heading (all caps or short line)
-          if (paragraph.trim().length < 100 && paragraph.trim() === paragraph.trim().toUpperCase()) {
-            doc.fontSize(13).font('Helvetica-Bold').text(paragraph.trim());
-          } else {
-            doc.fontSize(11).font('Helvetica').text(paragraph.trim(), {
-              align: 'left',
-              width: 445,
-            });
-          }
-          
-          if (index < paragraphs.length - 1) {
-            doc.moveDown(0.5);
-          }
-        }
+      doc.fontSize(12).font('Helvetica').text(content, {
+        align: 'left',
+        width: 500,
       });
 
-      // Finalize PDF
       doc.end();
     } catch (error) {
       reject(error);
@@ -77,16 +43,25 @@ export async function generatePdfFromContent(
 }
 
 /**
- * Convert a Buffer to a data URL for storage
+ * Convert a buffer to a data URL
+ * @param buffer - The buffer to convert
+ * @param mimeType - The MIME type of the data
+ * @returns Data URL string
  */
-export function bufferToDataUrl(buffer: Buffer, mimeType: string = 'application/pdf'): string {
-  return `data:${mimeType};base64,${buffer.toString('base64')}`;
+export function bufferToDataUrl(buffer: Buffer, mimeType: string = 'application/octet-stream'): string {
+  const base64 = buffer.toString('base64');
+  return `data:${mimeType};base64,${base64}`;
 }
 
 /**
- * Convert a data URL back to a Buffer
+ * Convert a data URL back to a buffer
+ * @param dataUrl - The data URL string
+ * @returns Buffer containing the decoded data
  */
 export function dataUrlToBuffer(dataUrl: string): Buffer {
   const base64Data = dataUrl.split(',')[1];
+  if (!base64Data) {
+    throw new Error('Invalid data URL format');
+  }
   return Buffer.from(base64Data, 'base64');
 }

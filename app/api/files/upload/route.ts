@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProfileById, updateProfile } from '@/lib/db';
-import { uploadProfileToAirtable, updateProfileFilesInAirtable } from '@/lib/airtable';
 
 const ALLOWED_FILE_TYPES = [
   'application/pdf',
@@ -85,10 +84,9 @@ export async function POST(request: NextRequest) {
       id: profile.id,
       name: profile.name,
       email: profile.email,
-      airtable_record_id: profile.airtable_record_id,
     });
 
-    // Convert file to base64 for storage
+    // Convert file to base64 for storage in PostgreSQL BYTEA column
     console.log('📝 Converting file to base64...');
     let buffer;
     try {
@@ -102,46 +100,20 @@ export async function POST(request: NextRequest) {
     }
 
     const base64 = Buffer.from(buffer).toString('base64');
-    const fileUrl = `data:${file.type};base64,${base64}`;
-    console.log('✅ File converted to base64, size:', fileUrl.length);
+    console.log('✅ File converted to base64, size:', base64.length);
 
-    // If profile doesn't have airtable_record_id, create one
-    let airtableRecordId = profile.airtable_record_id;
-    if (!airtableRecordId) {
-      console.log('📝 Creating new Airtable record for profile...');
-      try {
-        airtableRecordId = await uploadProfileToAirtable(
-          profile.id,
-          profile.name,
-          profile.email
-        );
-        console.log('✅ Airtable record created:', airtableRecordId);
-
-        // Update profile with airtable_record_id
-        await updateProfile(profile.id, { airtable_record_id: airtableRecordId });
-        console.log('✅ Profile updated with airtable_record_id');
-      } catch (airtableError) {
-        console.error('❌ Error creating Airtable record:', airtableError);
-        const errorMsg = airtableError instanceof Error ? airtableError.message : String(airtableError);
-        return NextResponse.json(
-          { error: 'Airtable error', message: errorMsg },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Update database
-    console.log('📝 Updating profile in database...');
+    // Update database with file stored in BYTEA column
+    console.log('📝 Updating profile in database with file...');
     const updateData: { [key: string]: string } = {};
     if (fileType === 'company_info') {
-      updateData.company_info_url = fileUrl;
+      updateData.company_info_file = base64;
     } else if (fileType === 'slides') {
-      updateData.slide_template_url = fileUrl;
+      updateData.slides_file = base64;
     }
 
     try {
       await updateProfile(profile.id, updateData);
-      console.log('✅ Profile updated in database');
+      console.log('✅ Profile updated in database with file');
     } catch (updateError) {
       console.error('❌ Error updating profile:', updateError);
       const errorMsg = updateError instanceof Error ? updateError.message : String(updateError);
@@ -151,30 +123,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update Airtable
-    console.log('📝 Updating Airtable record...');
-    try {
-      await updateProfileFilesInAirtable(
-        airtableRecordId,
-        fileType === 'company_info' ? fileUrl : undefined,
-        fileType === 'slides' ? fileUrl : undefined
-      );
-      console.log('✅ Airtable record updated');
-    } catch (airtableUpdateError) {
-      console.error('❌ Error updating Airtable:', airtableUpdateError);
-      const errorMsg = airtableUpdateError instanceof Error ? airtableUpdateError.message : String(airtableUpdateError);
-      return NextResponse.json(
-        { error: 'Airtable update error', message: errorMsg },
-        { status: 500 }
-      );
-    }
-
     console.log('✅ File upload completed successfully');
     return NextResponse.json({
       success: true,
       message: `${fileType === 'company_info' ? 'Company info' : 'Slides'} uploaded successfully`,
-      airtableRecordId,
-      fileUrl,
+      profileId,
+      fileType,
+      fileName: file.name,
     });
   } catch (error) {
     console.error('❌ Unexpected error uploading file:', error);
