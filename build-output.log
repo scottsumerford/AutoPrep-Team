@@ -1,0 +1,26 @@
+$ next build --turbopack
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+   ▲ Next.js 15.5.3 (Turbopack)
+
+   Creating an optimized production build ...
+ ✓ Finished writing to disk in 19ms
+ ✓ Compiled successfully in 5.8s
+   Linting and checking validity of types ...
+Failed to compile.
+
+./lib/db/index-update.ts:28:8
+Type error: Cannot find name 'isDatabaseConfigured'.
+
+[0m [90m 26 |[39m   reportUrl[33m?[39m[33m:[39m string
+ [90m 27 |[39m )[33m:[39m [33mPromise[39m[33m<[39m[33mCalendarEvent[39m [33m|[39m [36mnull[39m[33m>[39m {
+[31m[1m>[22m[39m[90m 28 |[39m   [36mif[39m ([33m![39misDatabaseConfigured()) {
+ [90m    |[39m        [31m[1m^[22m[39m
+ [90m 29 |[39m     console[33m.[39mlog([32m`📝 Updating presales status for event ${eventId} in memory`[39m)[33m;[39m
+ [90m 30 |[39m     [36mconst[39m event [33m=[39m mockEvents[33m.[39mfind(e [33m=>[39m e[33m.[39mid [33m===[39m eventId)[33m;[39m
+ [90m 31 |[39m     [36mif[39m ([33m![39mevent) [36mreturn[39m [36mnull[39m[33m;[39m[0m
+Next.js build worker exited with code: 1 and signal: null
+error: script "build" exited with code 1
