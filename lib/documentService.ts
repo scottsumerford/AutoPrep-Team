@@ -160,7 +160,7 @@ export async function updateDocumentStatus(
   }
 ): Promise<DocumentServiceResponse> {
   try {
-    const updateData: any = {
+    const updateData: Record<string, string | Date> = {
       status,
       updated_at: new Date().toISOString(),
     };

@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * Migration endpoint to add presales_report and slides columns to calendar_events table
  * This endpoint should be called once to migrate existing databases
  */
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     // Get the database connection
     // eslint-disable-next-line @typescript-eslint/no-require-imports
