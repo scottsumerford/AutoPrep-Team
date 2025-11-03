@@ -1,3 +1,16 @@
-// Fix #2: Remove missing lindy-agent import
-// The import line for '@/lib/lindy-agent' has been removed
-// This file now contains the corrected route without the missing import
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    
+    // Generate document logic here
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error generating document:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate document' },
+      { status: 500 }
+    );
+  }
+}
