@@ -54,7 +54,7 @@ interface TokenStats {
 export default function ProfilePage() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const profileId = params.id as string;
+  const profileId = params.slug as string;
   
   const [profile, setProfile] = useState<Profile | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -68,7 +68,7 @@ export default function ProfilePage() {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const response = await fetch(`/api/profiles/${profileId}`);
+      const response = await fetch(`/api/profiles/slug/${profileId}`);
       const data = await response.json();
       setProfile(data);
       setKeywordFilter(data.keyword_filter || '');
@@ -159,7 +159,7 @@ export default function ProfilePage() {
   const handleOperationModeToggle = async (checked: boolean) => {
     const newMode = checked ? 'auto-sync' : 'manual';
     try {
-      await fetch(`/api/profiles/${profileId}`, {
+      await fetch(`/api/profiles/slug/${profileId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ operation_mode: newMode })
@@ -172,7 +172,7 @@ export default function ProfilePage() {
 
   const handleFilterUpdate = async () => {
     try {
-      await fetch(`/api/profiles/${profileId}`, {
+      await fetch(`/api/profiles/slug/${profileId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keyword_filter: keywordFilter })
@@ -185,7 +185,7 @@ export default function ProfilePage() {
 
   const handleManualEmailUpdate = async () => {
     try {
-      await fetch(`/api/profiles/${profileId}`, {
+      await fetch(`/api/profiles/slug/${profileId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ manual_email: manualEmail })
