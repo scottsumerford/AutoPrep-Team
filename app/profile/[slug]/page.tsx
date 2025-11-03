@@ -443,7 +443,6 @@ Details: ${errorData.details || 'No details available'}`);
                   </div>
                 )}
               </CardContent>
-              </CardContent>
             </Card>
           </div>
 
