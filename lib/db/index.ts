@@ -39,6 +39,8 @@ export interface Profile {
   keyword_filter?: string;
   slide_template_url?: string;
   company_info_url?: string;
+  company_info_file?: string;
+  slides_file?: string;
   created_at: Date;
   updated_at: Date;
   airtable_record_id?: string;
@@ -297,6 +299,16 @@ export async function updateProfile(id: number, data: Partial<Profile>): Promise
       values.push(data.company_info_url);
       console.log(`🏢 Updating company info URL`);
     }
+    if (data.company_info_file !== undefined) {
+      updates.push(`company_info_file = $${paramIndex++}`);
+      values.push(data.company_info_file);
+      console.log(`📄 Updating company info file`);
+    }
+    if (data.slides_file !== undefined) {
+      updates.push(`slides_file = $${paramIndex++}`);
+      values.push(data.slides_file);
+      console.log(`📊 Updating slides file`);
+    }
 
     updates.push(`updated_at = $${paramIndex++}`);
     values.push(new Date());
@@ -524,6 +536,8 @@ export async function initializeDatabase(): Promise<void> {
         keyword_filter TEXT,
         slide_template_url TEXT,
         company_info_url TEXT,
+        company_info_file TEXT,
+        slides_file TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -572,6 +586,15 @@ export async function initializeDatabase(): Promise<void> {
     try {
       await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS airtable_record_id VARCHAR(255)`;
       console.log('✅ Profiles table airtable_record_id column added');
+    } catch (error) {
+      console.log('ℹ️ Profiles airtable_record_id column already exists or error updating:', error instanceof Error ? error.message : 'Unknown error');
+    }
+
+    // Add company_info_file and slides_file columns to profiles table
+    try {
+      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS company_info_file TEXT`;
+      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS slides_file TEXT`;
+      console.log('✅ Profiles table file columns added');
     } catch (error) {
       console.log('ℹ️ Profiles airtable_record_id column already exists or error updating:', error instanceof Error ? error.message : 'Unknown error');
     }
