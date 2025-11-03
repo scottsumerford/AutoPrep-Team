@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Calendar, FileText, Presentation, Upload, Mail, Filter, RefreshCw, Download, CheckCircle, Clock, XCircle, Loader2 } from 'lucide-react';
+import { Calendar, FileText, Presentation, Upload, Mail, Filter, RefreshCw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,12 +43,6 @@ interface CalendarEvent {
   end_time: string;
   attendees?: string[];
   source: 'google' | 'outlook';
-  presales_report_status?: 'pending' | 'processing' | 'completed' | 'failed';
-  presales_report_url?: string;
-  presales_report_generated_at?: string;
-  slides_status?: 'pending' | 'processing' | 'completed' | 'failed';
-  slides_url?: string;
-  slides_generated_at?: string;
 }
 
 interface TokenStats {
@@ -72,8 +66,6 @@ export default function ProfilePage() {
   const [manualEmail, setManualEmail] = useState('');
   const [showGoogleDialog, setShowGoogleDialog] = useState(false);
   const [showOutlookDialog, setShowOutlookDialog] = useState(false);
-  const [generatingReports, setGeneratingReports] = useState<Set<number>>(new Set());
-  const [generatingSlides, setGeneratingSlides] = useState<Set<number>>(new Set());
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -130,7 +122,9 @@ export default function ProfilePage() {
       } else {
         const errorData = await response.json();
         console.error('Failed to sync calendar:', errorData);
-        alert(`❌ Failed to sync calendar: ${errorData.error || 'Unknown error'}\n\nDetails: ${errorData.details || 'No details available'}`);
+        alert(`❌ Failed to sync calendar: ${errorData.error || 'Unknown error'}
+
+Details: ${errorData.details || 'No details available'}`);
       }
     } catch (error) {
       console.error('Error syncing calendar:', error);
@@ -149,9 +143,11 @@ export default function ProfilePage() {
   // Auto-sync calendar when profile is loaded and has tokens
   useEffect(() => {
     if (profile && (profile.google_access_token || profile.outlook_access_token)) {
+      // Check if we just came back from OAuth (synced=true in URL)
       const justSynced = searchParams.get('synced') === 'true';
       
       if (!justSynced) {
+        // Only auto-sync if we didn't just complete OAuth (which already synced)
         syncCalendar();
       }
     }
@@ -162,17 +158,6 @@ export default function ProfilePage() {
       document.title = `${profile.name} - AutoPrep.AI`;
     }
   }, [profile]);
-
-  // Poll for report status updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (generatingReports.size > 0 || generatingSlides.size > 0) {
-        fetchEvents();
-      }
-    }, 5000); // Poll every 5 seconds
-
-    return () => clearInterval(interval);
-  }, [generatingReports, generatingSlides, fetchEvents]);
   
   const handleOperationModeToggle = async (checked: boolean) => {
     const newMode = checked ? 'auto-sync' : 'manual';
@@ -215,8 +200,6 @@ export default function ProfilePage() {
   };
 
   const handleGenerateReport = async (event: CalendarEvent) => {
-    setGeneratingReports(prev => new Set(prev).add(event.id));
-    
     try {
       const response = await fetch('/api/lindy/presales-report', {
         method: 'POST',
@@ -232,31 +215,15 @@ export default function ProfilePage() {
       
       const data = await response.json();
       if (data.success) {
-        alert('✅ Pre-sales report generation started! The report will be ready in a few minutes.');
-        fetchEvents();
+        alert('Pre-sales report generated successfully!');
         fetchTokenStats();
-      } else {
-        alert(`❌ Failed to generate report: ${data.error || 'Unknown error'}`);
-        setGeneratingReports(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(event.id);
-          return newSet;
-        });
       }
     } catch (error) {
       console.error('Error generating report:', error);
-      alert(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setGeneratingReports(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(event.id);
-        return newSet;
-      });
     }
   };
 
   const handleGenerateSlides = async (event: CalendarEvent) => {
-    setGeneratingSlides(prev => new Set(prev).add(event.id));
-    
     try {
       const response = await fetch('/api/lindy/slides', {
         method: 'POST',
@@ -272,25 +239,11 @@ export default function ProfilePage() {
       
       const data = await response.json();
       if (data.success) {
-        alert('✅ Slides generation started! The slides will be ready in a few minutes.');
-        fetchEvents();
+        alert('Slides generated successfully!');
         fetchTokenStats();
-      } else {
-        alert(`❌ Failed to generate slides: ${data.error || 'Unknown error'}`);
-        setGeneratingSlides(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(event.id);
-          return newSet;
-        });
       }
     } catch (error) {
       console.error('Error generating slides:', error);
-      alert(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setGeneratingSlides(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(event.id);
-        return newSet;
-      });
     }
   };
 
@@ -302,64 +255,31 @@ export default function ProfilePage() {
     window.location.href = `/api/auth/outlook?profile_id=${profileId}`;
   };
 
-  const filteredEvents = events.filter(event => {
-    if (!keywordFilter) return true;
-    return event.title.toLowerCase().includes(keywordFilter.toLowerCase());
-  });
-
-  // Separate events with completed reports
-  const eventsWithReports = filteredEvents.filter(event => 
-    event.presales_report_status === 'completed' || event.slides_status === 'completed'
-  );
-
-  const getStatusIcon = (status?: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'processing':
-        return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />;
-      case 'failed':
-        return <XCircle className="w-4 h-4 text-red-500" />;
-      default:
-        return <Clock className="w-4 h-4 text-gray-400" />;
-    }
-  };
-
-  if (loading) {
+  if (loading || !profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p>Loading profile...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading profile...</div>
       </div>
     );
   }
 
-  if (!profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-xl text-red-500">Profile not found</p>
-        </div>
-      </div>
-    );
-  }
+  const filteredEvents = keywordFilter
+    ? events.filter(e => e.title.toLowerCase().includes(keywordFilter.toLowerCase()))
+    : events;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">
-            {profile.name}
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400">
-            {profile.email} {profile.title && `• ${profile.title}`}
-          </p>
+          <Link href="/" className="text-blue-600 hover:underline mb-4 inline-block">
+            ← Back to Dashboard
+          </Link>
+          <h1 className="text-4xl font-bold mb-2">{profile.name}</h1>
+          <p className="text-slate-600 dark:text-slate-400">{profile.email}</p>
         </div>
 
-        {/* Token Usage Stats */}
+        {/* Token Stats */}
         {tokenStats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <Card>
@@ -380,7 +300,7 @@ export default function ProfilePage() {
             </Card>
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Reports Generated</CardTitle>
+                <CardTitle className="text-sm font-medium">Pre-sales Reports</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{tokenStats.presales_report.toLocaleString()}</div>
@@ -397,55 +317,71 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Settings & File Uploads */}
-          <div className="space-y-6">
-            {/* Calendar Connection */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Profile Overview */}
+          <div className="lg:col-span-1 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Calendar Connection</CardTitle>
-                <CardDescription>Connect your calendar to sync events</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Button
-                  onClick={() => setShowGoogleDialog(true)}
-                  variant={profile.google_access_token ? 'default' : 'outline'}
-                  className="w-full"
-                >
-                  {profile.google_access_token ? '✓ Google Connected' : 'Connect Google Calendar'}
-                </Button>
-                <Button
-                  onClick={() => setShowOutlookDialog(true)}
-                  variant={profile.outlook_access_token ? 'default' : 'outline'}
-                  className="w-full"
-                >
-                  {profile.outlook_access_token ? '✓ Outlook Connected' : 'Connect Outlook Calendar'}
-                </Button>
-                {(profile.google_access_token || profile.outlook_access_token) && (
-                  <Button
-                    onClick={syncCalendar}
-                    disabled={syncing}
-                    variant="secondary"
-                    className="w-full gap-2"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                    {syncing ? 'Syncing...' : 'Sync Calendar'}
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Settings</CardTitle>
-                <CardDescription>Configure your AutoPrep preferences</CardDescription>
+                <CardTitle>Profile Overview</CardTitle>
+                <CardDescription>Manage authentication and settings</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* User Info */}
+                <div>
+                  <Label className="text-sm font-medium">Name</Label>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{profile.name}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Email</Label>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{profile.email}</p>
+                </div>
+                {profile.title && (
+                  <div>
+                    <Label className="text-sm font-medium">Title</Label>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{profile.title}</p>
+                  </div>
+                )}
+
+                {/* Authentication */}
+                <div className="space-y-3 pt-4 border-t">
+                  <Label className="text-sm font-medium">Authentication</Label>
+                  <Button 
+                    onClick={() => setShowGoogleDialog(true)}
+                    variant={profile.google_access_token ? "default" : "outline"}
+                    className="w-full justify-start gap-2"
+                  >
+                    <Mail className="w-4 h-4" />
+                    {profile.google_access_token ? 'Google Connected' : 'Connect Google'}
+                  </Button>
+                  <Button 
+                    onClick={() => setShowOutlookDialog(true)}
+                    variant={profile.outlook_access_token ? "default" : "outline"}
+                    className="w-full justify-start gap-2"
+                  >
+                    <Mail className="w-4 h-4" />
+                    {profile.outlook_access_token ? 'Outlook Connected' : 'Connect Outlook'}
+                  </Button>
+                  
+                  {/* Manual Sync Button */}
+                  {(profile.google_access_token || profile.outlook_access_token) && (
+                    <Button 
+                      onClick={syncCalendar}
+                      disabled={syncing}
+                      variant="outline"
+                      className="w-full justify-start gap-2"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                      {syncing ? 'Syncing...' : 'Sync Calendar Now'}
+                    </Button>
+                  )}
+                </div>
+
                 {/* Operation Mode */}
-                <div className="space-y-2">
+                <div className="space-y-3 pt-4 border-t">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="operation-mode">Auto-Sync Mode</Label>
+                    <Label htmlFor="operation-mode" className="text-sm font-medium">
+                      Auto-sync Calendar
+                    </Label>
                     <Switch
                       id="operation-mode"
                       checked={profile.operation_mode === 'auto-sync'}
@@ -539,70 +475,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Generated Reports Section */}
-            {eventsWithReports.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Download className="w-5 h-5" />
-                    Generated Reports
-                  </CardTitle>
-                  <CardDescription>
-                    {eventsWithReports.length} event{eventsWithReports.length !== 1 ? 's' : ''} with completed reports
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {eventsWithReports.map((event) => (
-                      <Card key={event.id} className="border-l-4 border-l-green-500">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-lg">{event.title}</CardTitle>
-                          <CardDescription>
-                            {new Date(event.start_time).toLocaleString()}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <div className="flex flex-wrap gap-2">
-                            {event.presales_report_status === 'completed' && event.presales_report_url && (
-                              <Button
-                                asChild
-                                variant="default"
-                                size="sm"
-                                className="gap-2"
-                              >
-                                <a href={event.presales_report_url} target="_blank" rel="noopener noreferrer">
-                                  <Download className="w-4 h-4" />
-                                  Download Pre-Sales Report
-                                </a>
-                              </Button>
-                            )}
-                            {event.slides_status === 'completed' && event.slides_url && (
-                              <Button
-                                asChild
-                                variant="outline"
-                                size="sm"
-                                className="gap-2"
-                              >
-                                <a href={event.slides_url} target="_blank" rel="noopener noreferrer">
-                                  <Download className="w-4 h-4" />
-                                  Download Slides
-                                </a>
-                              </Button>
-                            )}
-                          </div>
-                          {event.presales_report_generated_at && (
-                            <p className="text-xs text-slate-500">
-                              Report generated: {new Date(event.presales_report_generated_at).toLocaleString()}
-                            </p>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Calendar Events List */}
             <Card>
               <CardHeader>
@@ -642,71 +514,24 @@ export default function ProfilePage() {
                               Attendees: {event.attendees.join(', ')}
                             </p>
                           )}
-                          
-                          {/* Status Indicators */}
-                          <div className="flex gap-4 text-xs">
-                            {event.presales_report_status && (
-                              <div className="flex items-center gap-1">
-                                {getStatusIcon(event.presales_report_status)}
-                                <span>Report: {event.presales_report_status}</span>
-                              </div>
-                            )}
-                            {event.slides_status && (
-                              <div className="flex items-center gap-1">
-                                {getStatusIcon(event.slides_status)}
-                                <span>Slides: {event.slides_status}</span>
-                              </div>
-                            )}
-                          </div>
-
                           <div className="flex gap-2">
                             <Button 
                               onClick={() => handleGenerateReport(event)}
-                              variant={event.presales_report_status === 'completed' ? 'outline' : 'default'}
+                              variant="default"
                               size="sm"
                               className="gap-2"
-                              disabled={event.presales_report_status === 'processing' || generatingReports.has(event.id)}
                             >
-                              {event.presales_report_status === 'processing' || generatingReports.has(event.id) ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                  Generating...
-                                </>
-                              ) : event.presales_report_status === 'completed' ? (
-                                <>
-                                  <CheckCircle className="w-4 h-4" />
-                                  Regenerate Report
-                                </>
-                              ) : (
-                                <>
-                                  <FileText className="w-4 h-4" />
-                                  Generate Pre-Sales Report
-                                </>
-                              )}
+                              <FileText className="w-4 h-4" />
+                              PDF Pre-sales Report
                             </Button>
                             <Button 
                               onClick={() => handleGenerateSlides(event)}
-                              variant={event.slides_status === 'completed' ? 'outline' : 'outline'}
+                              variant="outline"
                               size="sm"
                               className="gap-2"
-                              disabled={event.slides_status === 'processing' || generatingSlides.has(event.id)}
                             >
-                              {event.slides_status === 'processing' || generatingSlides.has(event.id) ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                  Generating...
-                                </>
-                              ) : event.slides_status === 'completed' ? (
-                                <>
-                                  <CheckCircle className="w-4 h-4" />
-                                  Regenerate Slides
-                                </>
-                              ) : (
-                                <>
-                                  <Presentation className="w-4 h-4" />
-                                  Generate Slides
-                                </>
-                              )}
+                              <Presentation className="w-4 h-4" />
+                              Create Slides
                             </Button>
                           </div>
                         </CardContent>
@@ -751,7 +576,7 @@ export default function ProfilePage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleOutlookAuthConfirm}>
+            <AlertDialogAction onClick={handleGoogleAuthConfirm}>
               Continue to Outlook
             </AlertDialogAction>
           </AlertDialogFooter>
