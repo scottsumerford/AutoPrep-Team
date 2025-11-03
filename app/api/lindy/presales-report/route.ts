@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       event_title: event_title,
       event_description: event_description || '',
       attendee_email: attendee_email,
-      airtable_record_id: profile.airtable_record_id || '',
+      // airtable_record_id removed - causing 422 errors from Lindy agent
       user_profile_id: profile.id,
       webhook_callback_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`,
       // Include company information file (base64 encoded)
