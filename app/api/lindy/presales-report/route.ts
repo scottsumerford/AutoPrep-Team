@@ -6,6 +6,7 @@ import { updateEventPresalesStatus, getEventById, markStalePresalesRuns, getProf
  * 
  * Triggers the Lindy Pre-Sales Report agent to generate a report for a calendar event.
  * Uses webhook-based integration with proper authentication.
+ * Now includes company information and slide templates in the webhook payload.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Get profile to include airtable_record_id
+    // Get profile to include airtable_record_id and company files
     const profile = await getProfileById(event.profile_id);
     if (!profile) {
       console.error('❌ Profile not found for event:', event_id);
@@ -75,10 +76,21 @@ export async function POST(request: NextRequest) {
       attendee_email: attendee_email,
       airtable_record_id: profile.airtable_record_id || '',
       user_profile_id: profile.id,
-      webhook_callback_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
+      webhook_callback_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`,
+      // Include company information file (base64 encoded)
+      company_info_file: (profile as any).company_info_file || null,
+      // Include slide templates file (base64 encoded)
+      slides_file: (profile as any).slides_file || null,
     };
 
-    console.log('📤 [PRESALES_REPORT_WEBHOOK] Payload:', JSON.stringify(webhookPayload, null, 2));
+    console.log('📤 [PRESALES_REPORT_WEBHOOK] Payload:', {
+      calendar_event_id: webhookPayload.calendar_event_id,
+      event_title: webhookPayload.event_title,
+      attendee_email: webhookPayload.attendee_email,
+      user_profile_id: webhookPayload.user_profile_id,
+      hasCompanyInfo: !!webhookPayload.company_info_file,
+      hasSlidesFile: !!webhookPayload.slides_file,
+    });
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
