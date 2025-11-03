@@ -130,6 +130,7 @@ export async function POST(request: NextRequest) {
       profileId,
       fileType,
       fileName: file.name,
+      airtableRecordId: profile.airtable_record_id || null,
     });
   } catch (error) {
     console.error('❌ Unexpected error uploading file:', error);
