@@ -122,7 +122,9 @@ export default function ProfilePage() {
       } else {
         const errorData = await response.json();
         console.error('Failed to sync calendar:', errorData);
-        alert(`❌ Failed to sync calendar: ${errorData.error || 'Unknown error'}\n\nDetails: ${errorData.details || 'No details available'}`);
+        alert(`❌ Failed to sync calendar: ${errorData.error || 'Unknown error'}
+
+Details: ${errorData.details || 'No details available'}`);
       }
     } catch (error) {
       console.error('Error syncing calendar:', error);
@@ -440,7 +442,7 @@ export default function ProfilePage() {
                     <FileUploadSection profileId={profile.id} />
                   </div>
                 )}
-              </div>
+              </CardContent>
               </CardContent>
             </Card>
           </div>
@@ -575,7 +577,7 @@ export default function ProfilePage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleOutlookAuthConfirm}>
+            <AlertDialogAction onClick={handleGoogleAuthConfirm}>
               Continue to Outlook
             </AlertDialogAction>
           </AlertDialogFooter>
