@@ -78,9 +78,9 @@ export async function POST(request: NextRequest) {
       user_profile_id: profile.id,
       webhook_callback_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`,
       // Include company information file (base64 encoded)
-      company_info_file: (profile as any).company_info_file || null,
+      company_info_file: ((profile as Record<string, unknown>).company_info_file as string | null) || null,
       // Include slide templates file (base64 encoded)
-      slides_file: (profile as any).slides_file || null,
+      slides_file: ((profile as Record<string, unknown>).slides_file as string | null) || null,
     };
 
     console.log('📤 [PRESALES_REPORT_WEBHOOK] Payload:', {
