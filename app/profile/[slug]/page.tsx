@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { FileUploadSection } from '@/components/FileUploadSection';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -434,32 +435,12 @@ export default function ProfilePage() {
                 </div>
 
                 {/* File Uploads */}
-                <div className="space-y-4 pt-4 border-t">
-                  <div>
-                    <Label className="text-sm font-medium mb-2 block">
-                      Example Pitch Decks
-                    </Label>
-                    <p className="text-xs text-slate-500 mb-2">
-                      (This is your company pitch deck or an example pitch deck to use as a template for building a new pitch deck.)
-                    </p>
-                    <Button variant="outline" className="w-full justify-start gap-2">
-                      <Upload className="w-4 h-4" />
-                      Upload Template
-                    </Button>
+                {profile && (
+                  <div className="pt-4 border-t">
+                    <FileUploadSection profileId={profile.id} />
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium mb-2 block">
-                      Company Information
-                    </Label>
-                    <p className="text-xs text-slate-500 mb-2">
-                      Your company information to use when building the Pre-sales Report and Pitch Deck
-                    </p>
-                    <Button variant="outline" className="w-full justify-start gap-2">
-                      <Upload className="w-4 h-4" />
-                      Upload Info
-                    </Button>
-                  </div>
-                </div>
+                )}
+              </div>
               </CardContent>
             </Card>
           </div>
