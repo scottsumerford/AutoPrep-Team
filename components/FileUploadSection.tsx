@@ -118,7 +118,7 @@ export function FileUploadSection({ profileId, onUploadSuccess }: FileUploadSect
             Company Information
           </Label>
           <p className="text-xs text-gray-500">
-            Upload PDF, Word, Excel, or text files about your company
+            Upload PDF, Word, Excel, or text files about your company. This will be used to generate pre-sales reports.
           </p>
           <div className="flex gap-2">
             <input
@@ -169,7 +169,7 @@ export function FileUploadSection({ profileId, onUploadSuccess }: FileUploadSect
             Slide Templates
           </Label>
           <p className="text-xs text-gray-500">
-            Upload PowerPoint or PDF files to use as slide templates
+            Upload PowerPoint or PDF files to use as slide templates for presentations.
           </p>
           <div className="flex gap-2">
             <input
@@ -218,7 +218,9 @@ export function FileUploadSection({ profileId, onUploadSuccess }: FileUploadSect
           <br />
           ✓ Maximum file size: 50MB
           <br />
-          ✓ Files are securely stored and used for generating pre-sales reports
+          ✓ Files are securely stored in the database and used for generating pre-sales reports
+          <br />
+          ✓ Company information is automatically passed to the pre-sales report agent
         </p>
       </CardContent>
     </Card>
