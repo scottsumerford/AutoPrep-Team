@@ -87,27 +87,29 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  }, [profileId]);
+  }, [profile]);
 
   const fetchEvents = useCallback(async () => {
+    if (!profile?.id) return;
     try {
-      const response = await fetch(`/api/calendar/${profileId}`);
+      const response = await fetch(`/api/calendar/${profile.id}`);
       const data = await response.json();
       setEvents(data);
     } catch (error) {
       console.error('Error fetching events:', error);
     }
-  }, [profileId]);
+  }, [profile]);
 
   const fetchTokenStats = useCallback(async () => {
+    if (!profile?.id) return;
     try {
-      const response = await fetch(`/api/tokens/${profileId}`);
+      const response = await fetch(`/api/tokens/${profile.id}`);
       const data = await response.json();
       setTokenStats(data);
     } catch (error) {
       console.error('Error fetching token stats:', error);
     }
-  }, [profileId]);
+  }, [profile]);
 
   const syncCalendar = useCallback(async () => {
     if (!profile?.google_access_token && !profile?.outlook_access_token) {
@@ -119,7 +121,7 @@ export default function ProfilePage() {
       const response = await fetch('/api/calendar/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile_id: profileId })
+        body: JSON.stringify({ profile_id: profile.id })
       });
       
       if (response.ok) {
