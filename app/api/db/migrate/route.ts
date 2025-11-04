@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     console.log('🔧 Running database migrations...');
 
-    // Add presales report columns
+    // Add presales report columns and new file storage columns
     const migrations = [
       'ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS presales_report_status VARCHAR(50) DEFAULT \'pending\'',
       'ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS presales_report_url TEXT',
@@ -38,6 +38,12 @@ export async function POST(request: NextRequest) {
       'ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS slides_generated_at TIMESTAMP',
       'CREATE INDEX IF NOT EXISTS idx_calendar_events_presales_status ON calendar_events(presales_report_status)',
       'CREATE INDEX IF NOT EXISTS idx_calendar_events_slides_status ON calendar_events(slides_status)',
+      // New migrations for file storage
+      'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS company_info_file TEXT',
+      'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS company_info_text TEXT',
+      'ALTER TABLE profiles ADD COLUMN IF NOT EXISTS slides_file TEXT',
+      'ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS presales_report_content TEXT',
+      'ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS slides_content TEXT',
     ];
 
     const results = [];
