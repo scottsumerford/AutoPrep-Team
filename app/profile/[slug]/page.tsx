@@ -740,7 +740,8 @@ export default function ProfilePage() {
             </Card>
 
             {/* File Upload Section */}
-            <FileUploadSection 
+            <FileUploadSection
+              initialCompanyText={profile.company_info_text} 
               profileId={profile.id}
               onUploadSuccess={(fileType, airtableRecordId) => {
                 console.log(`✅ ${fileType} uploaded successfully. Airtable Record ID: ${airtableRecordId}`);

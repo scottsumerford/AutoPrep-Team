@@ -42,6 +42,9 @@ export interface Profile {
   created_at: Date;
   updated_at: Date;
   airtable_record_id?: string;
+  company_info_file?: string;
+  company_info_text?: string;
+  slides_file?: string;
 }
 
 export interface CalendarEvent {

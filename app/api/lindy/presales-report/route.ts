@@ -5,7 +5,7 @@ import { updateEventPresalesStatus, getEventById, markStalePresalesRuns, getProf
  * POST /api/lindy/presales-report
  * 
  * Triggers the Lindy Pre-Sales Report agent to generate a report for a calendar event.
- * Uses webhook-based integration with proper authentication.
+ * Includes company information (file or text) from Supabase in the webhook payload.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Get profile to include airtable_record_id
+    // Get profile to include company info
     const profile = await getProfileById(event.profile_id);
     if (!profile) {
       console.error('❌ Profile not found for event:', event_id);
@@ -67,18 +67,50 @@ export async function POST(request: NextRequest) {
 
     console.log('🔗 [PRESALES_REPORT_WEBHOOK] Triggering Pre-sales Report Lindy agent via webhook');
 
+    // Prepare company information - prioritize text over file
+    let companyInfo = null;
+    let companyInfoType = null;
+    
+    if (profile.company_info_text) {
+      companyInfo = profile.company_info_text;
+      companyInfoType = 'text';
+      console.log('📝 Using company info text (length:', companyInfo.length, ')');
+    } else if (profile.company_info_file) {
+      try {
+        const fileData = JSON.parse(profile.company_info_file);
+        companyInfo = {
+          filename: fileData.filename,
+          mimetype: fileData.mimetype,
+          size: fileData.size,
+          data: fileData.data, // base64 encoded
+        };
+        companyInfoType = 'file';
+        console.log('📎 Using company info file:', fileData.filename);
+      } catch (parseError) {
+        console.error('❌ Error parsing company info file:', parseError);
+      }
+    }
+
     // Prepare the payload for the webhook
-    const webhookPayload = {
+    const webhookPayload: Record<string, unknown> = {
       calendar_event_id: event_id,
       event_title: event_title,
       event_description: event_description || '',
       attendee_email: attendee_email,
-      airtable_record_id: profile.airtable_record_id || '',
       user_profile_id: profile.id,
       webhook_callback_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
     };
 
-    console.log('📤 [PRESALES_REPORT_WEBHOOK] Payload:', JSON.stringify(webhookPayload, null, 2));
+    // Add company info to payload
+    if (companyInfo) {
+      webhookPayload.company_info = companyInfo;
+      webhookPayload.company_info_type = companyInfoType;
+    }
+
+    console.log('📤 [PRESALES_REPORT_WEBHOOK] Payload:', JSON.stringify({
+      ...webhookPayload,
+      company_info: companyInfoType === 'file' ? '[FILE DATA]' : companyInfo ? `[TEXT: ${String(companyInfo).substring(0, 50)}...]` : null
+    }, null, 2));
 
     const headers: HeadersInit = {
       'Content-Type': 'application/json',

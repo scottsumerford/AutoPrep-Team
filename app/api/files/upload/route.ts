@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProfileById, updateProfile } from '@/lib/db';
-import { uploadProfileToAirtable, updateProfileFilesInAirtable } from '@/lib/airtable';
 
 const ALLOWED_FILE_TYPES = [
   'application/pdf',
@@ -16,6 +15,12 @@ const ALLOWED_FILE_TYPES = [
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
+/**
+ * POST /api/files/upload
+ * 
+ * Uploads files directly to Supabase database (no Airtable)
+ * Files are stored as base64 encoded strings in the profiles table
+ */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -65,16 +70,7 @@ export async function POST(request: NextRequest) {
 
     // Get profile
     console.log('🔍 Fetching profile from database...');
-    let profile;
-    try {
-      profile = await getProfileById(parseInt(profileId));
-    } catch (dbError) {
-      console.error('❌ Database error fetching profile:', dbError);
-      return NextResponse.json(
-        { error: 'Database error', message: dbError instanceof Error ? dbError.message : 'Unknown database error' },
-        { status: 500 }
-      );
-    }
+    const profile = await getProfileById(parseInt(profileId));
 
     if (!profile) {
       console.error('❌ Profile not found:', profileId);
@@ -85,96 +81,43 @@ export async function POST(request: NextRequest) {
       id: profile.id,
       name: profile.name,
       email: profile.email,
-      airtable_record_id: profile.airtable_record_id,
     });
 
-    // Convert file to base64 for storage
+    // Convert file to base64 for storage in Supabase
     console.log('📝 Converting file to base64...');
-    let buffer;
-    try {
-      buffer = await file.arrayBuffer();
-    } catch (bufferError) {
-      console.error('❌ Error reading file:', bufferError);
-      return NextResponse.json(
-        { error: 'Error reading file', message: bufferError instanceof Error ? bufferError.message : 'Unknown error' },
-        { status: 400 }
-      );
-    }
-
+    const buffer = await file.arrayBuffer();
     const base64 = Buffer.from(buffer).toString('base64');
-    const fileUrl = `data:${file.type};base64,${base64}`;
-    console.log('✅ File converted to base64, size:', fileUrl.length);
+    
+    // Store file with metadata
+    const fileData = {
+      filename: file.name,
+      mimetype: file.type,
+      size: file.size,
+      data: base64,
+    };
+    
+    const fileDataString = JSON.stringify(fileData);
+    console.log('✅ File converted to base64, total size:', fileDataString.length);
 
-    // If profile doesn't have airtable_record_id, create one
-    let airtableRecordId = profile.airtable_record_id;
-    if (!airtableRecordId) {
-      console.log('📝 Creating new Airtable record for profile...');
-      try {
-        airtableRecordId = await uploadProfileToAirtable(
-          profile.id,
-          profile.name,
-          profile.email
-        );
-        console.log('✅ Airtable record created:', airtableRecordId);
-
-        // Update profile with airtable_record_id
-        await updateProfile(profile.id, { airtable_record_id: airtableRecordId });
-        console.log('✅ Profile updated with airtable_record_id');
-      } catch (airtableError) {
-        console.error('❌ Error creating Airtable record:', airtableError);
-        const errorMsg = airtableError instanceof Error ? airtableError.message : String(airtableError);
-        return NextResponse.json(
-          { error: 'Airtable error', message: errorMsg },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Update database
-    console.log('📝 Updating profile in database...');
-    const updateData: { [key: string]: string } = {};
+    // Update database - store directly in Supabase
+    console.log('📝 Updating profile in Supabase...');
+    const updateData: Record<string, string> = {};
+    
     if (fileType === 'company_info') {
-      updateData.company_info_url = fileUrl;
+      updateData.company_info_file = fileDataString;
     } else if (fileType === 'slides') {
-      updateData.slide_template_url = fileUrl;
+      updateData.slides_file = fileDataString;
     }
 
-    try {
-      await updateProfile(profile.id, updateData);
-      console.log('✅ Profile updated in database');
-    } catch (updateError) {
-      console.error('❌ Error updating profile:', updateError);
-      const errorMsg = updateError instanceof Error ? updateError.message : String(updateError);
-      return NextResponse.json(
-        { error: 'Database update error', message: errorMsg },
-        { status: 500 }
-      );
-    }
+    await updateProfile(profile.id, updateData);
+    console.log('✅ Profile updated in Supabase');
 
-    // Update Airtable
-    console.log('📝 Updating Airtable record...');
-    try {
-      await updateProfileFilesInAirtable(
-        airtableRecordId,
-        fileType === 'company_info' ? fileUrl : undefined,
-        fileType === 'slides' ? fileUrl : undefined
-      );
-      console.log('✅ Airtable record updated');
-    } catch (airtableUpdateError) {
-      console.error('❌ Error updating Airtable:', airtableUpdateError);
-      const errorMsg = airtableUpdateError instanceof Error ? airtableUpdateError.message : String(airtableUpdateError);
-      return NextResponse.json(
-        { error: 'Airtable update error', message: errorMsg },
-        { status: 500 }
-      );
-    }
-
-    console.log('✅ File upload completed successfully');
+    console.log('✅ File upload completed successfully (stored in Supabase)');
     return NextResponse.json({
       success: true,
       message: `${fileType === 'company_info' ? 'Company info' : 'Slides'} uploaded successfully`,
-      airtableRecordId,
-      fileUrl,
+      filename: file.name,
+      size: file.size,
     });
   } catch (error) {
     console.error('❌ Unexpected error uploading file:', error);
