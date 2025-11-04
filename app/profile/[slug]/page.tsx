@@ -32,6 +32,9 @@ interface Profile {
   google_access_token?: string;
   outlook_access_token?: string;
   airtable_record_id?: string;
+  company_info_file?: string;
+  company_info_text?: string;
+  slides_file?: string;
 }
 
 interface CalendarEvent {
@@ -743,9 +746,9 @@ export default function ProfilePage() {
             <FileUploadSection
               initialCompanyText={profile.company_info_text} 
               profileId={profile.id}
-              onUploadSuccess={(fileType, airtableRecordId) => {
-                console.log(`✅ ${fileType} uploaded successfully. Airtable Record ID: ${airtableRecordId}`);
-                // Optionally refresh profile data
+              onUploadSuccess={(fileType) => {
+                console.log(`✅ ${fileType} uploaded successfully`);
+                // Refresh profile data to show updated files
                 fetchProfile();
               }}
             />

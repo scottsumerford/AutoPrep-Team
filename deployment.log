@@ -1,0 +1,71 @@
+Vercel CLI 48.8.2
+Loading scopes…
+Searching for existing projects…
+Linked to scott-s-projects-53d26130/autoprep-team (created .vercel)
+Deploying scott-s-projects-53d26130/autoprep-team
+Uploading [--------------------] (0.0B/367.4KB)
+Uploading [=====---------------] (96.3KB/367.4KB)
+Uploading [==========----------] (186.5KB/367.4KB)
+Uploading [===============-----] (285.1KB/367.4KB)
+Uploading [====================] (367.4KB/367.4KB)
+Inspect: https://vercel.com/scott-s-projects-53d26130/autoprep-team/7XVAzsv9MpqVBdH8zAYx5E6bUhe3 [4s]
+Preview: https://autoprep-team-84uf54qaa-scott-s-projects-53d26130.vercel.app [4s]
+https://autoprep-team-84uf54qaa-scott-s-projects-53d26130.vercel.appQueued
+Building
+2025-11-04T04:09:19.816Z  Running build in Washington, D.C., USA (East) – iad1
+2025-11-04T04:09:19.817Z  Build machine configuration: 2 cores, 8 GB
+2025-11-04T04:09:19.972Z  Retrieving list of deployment files...
+2025-11-04T04:09:20.501Z  Downloading 221 deployment files...
+2025-11-04T04:09:22.132Z  Restored build cache from previous deployment (7tkrFNwFakrUNSkCfxioWHvAjQxQ)
+2025-11-04T04:09:22.907Z  Running "vercel build"
+2025-11-04T04:09:23.290Z  Vercel CLI 48.8.2
+2025-11-04T04:09:23.619Z  Running "install" command: `bun install`...
+2025-11-04T04:09:23.649Z  bun install v1.2.23 (cf136713)
+2025-11-04T04:09:24.252Z  
+2025-11-04T04:09:24.252Z  + @auth/pg-adapter@1.11.0
+2025-11-04T04:09:24.252Z  + @vercel/postgres@0.10.0
+2025-11-04T04:09:24.252Z  + next-auth@4.24.11
+2025-11-04T04:09:24.252Z  
+2025-11-04T04:09:24.252Z  39 packages installed [617.00ms]
+2025-11-04T04:09:24.261Z  Detected Next.js version: 15.5.3
+2025-11-04T04:09:24.262Z  Running "bun run build"
+2025-11-04T04:09:24.264Z  $ next build --turbopack
+2025-11-04T04:09:25.444Z     ▲ Next.js 15.5.3 (Turbopack)
+2025-11-04T04:09:25.445Z  
+2025-11-04T04:09:25.526Z     Creating an optimized production build ...
+2025-11-04T04:09:36.796Z   ✓ Finished writing to disk in 30ms
+2025-11-04T04:09:36.828Z   ✓ Compiled successfully in 10.6s
+2025-11-04T04:09:36.833Z     Linting and checking validity of types ...
+2025-11-04T04:09:43.719Z  
+2025-11-04T04:09:43.720Z  ./app/api/db/fix-airtable-ids/route.ts
+2025-11-04T04:09:43.720Z  4:28  Warning: 'request' is defined but never used.  @typescript-eslint/no-unused-vars
+2025-11-04T04:09:43.720Z  
+2025-11-04T04:09:43.720Z  ./app/api/db/migrate/route.ts
+2025-11-04T04:09:43.720Z  7:28  Warning: 'request' is defined but never used.  @typescript-eslint/no-unused-vars
+2025-11-04T04:09:43.720Z  
+2025-11-04T04:09:43.720Z  ./app/profile/[slug]/page.tsx
+2025-11-04T04:09:43.720Z  214:10  Warning: 'slidesContent' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+2025-11-04T04:09:43.720Z  214:25  Warning: 'setSlidesContent' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+2025-11-04T04:09:43.720Z  
+2025-11-04T04:09:43.720Z  ./components/GeneratedReportsSection.tsx
+2025-11-04T04:09:43.720Z  4:10  Warning: 'Button' is defined but never used.  @typescript-eslint/no-unused-vars
+2025-11-04T04:09:43.720Z  
+2025-11-04T04:09:43.721Z  ./lib/pdf-generator.ts
+2025-11-04T04:09:43.721Z  2:10  Warning: 'Readable' is defined but never used.  @typescript-eslint/no-unused-vars
+2025-11-04T04:09:43.721Z  
+2025-11-04T04:09:43.721Z  info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+2025-11-04T04:09:48.028Z  Failed to compile.
+2025-11-04T04:09:48.029Z  
+2025-11-04T04:09:48.029Z  ./app/profile/[slug]/page.tsx:744:43
+2025-11-04T04:09:48.029Z  Type error: Property 'company_info_text' does not exist on type 'Profile'.
+2025-11-04T04:09:48.029Z  
+2025-11-04T04:09:48.029Z  [0m [90m 742 |[39m             {[90m/* File Upload Section */[39m}
+2025-11-04T04:09:48.030Z   [90m 743 |[39m             [33m<[39m[33mFileUploadSection[39m
+2025-11-04T04:09:48.030Z  [31m[1m>[22m[39m[90m 744 |[39m               initialCompanyText[33m=[39m{profile[33m.[39mcompany_info_text} 
+2025-11-04T04:09:48.030Z   [90m     |[39m                                           [31m[1m^[22m[39m
+2025-11-04T04:09:48.030Z   [90m 745 |[39m               profileId[33m=[39m{profile[33m.[39mid}
+2025-11-04T04:09:48.030Z   [90m 746 |[39m               onUploadSuccess[33m=[39m{(fileType[33m,[39m airtableRecordId) [33m=>[39m {
+2025-11-04T04:09:48.030Z   [90m 747 |[39m                 console[33m.[39mlog([32m`✅ ${fileType} uploaded successfully. Airtable Record ID: ${airtableRecordId}`[39m)[33m;[39m[0m
+2025-11-04T04:09:48.056Z  Next.js build worker exited with code: 1 and signal: null
+2025-11-04T04:09:48.064Z  error: script "build" exited with code 1
+2025-11-04T04:09:48.075Z  Error: Command "bun run build" exited with 1
