@@ -1,230 +1,249 @@
-# Deployment Instructions - Lindy API Integration Fix
+# Deployment Instructions - Supabase Storage Integration
 
-## Problem Summary
+## Overview
 
-The "Generating Report..." and "Creating Slides..." buttons on the live site (team.autoprep.ai) are stuck in a loading state. This is because the backend is trying to trigger Lindy agents but the `LINDY_API_KEY` environment variable is not configured in the Vercel production environment.
+This update migrates file storage from base64-encoded database storage to Supabase Storage. Files are now stored in a Supabase Storage bucket called "Files" and referenced by URL in the profiles table.
 
-## What Was Fixed
+## Changes Made
 
-### Code Changes
-1. **Updated `/app/api/lindy/presales-report/route.ts`**
-   - Now uses Lindy API directly: `https://api.lindy.ai/v1/agents/{agentId}/invoke`
-   - Requires `LINDY_API_KEY` environment variable
-   - Sends event data to agent and webhook callback URL
+### 1. New Dependencies
+- Added `@supabase/supabase-js` package for Supabase Storage integration
 
-2. **Updated `/app/api/lindy/slides/route.ts`**
-   - Same implementation as presales-report
-   - Uses Lindy API to trigger slides generation agent
-   - Requires `LINDY_API_KEY` environment variable
+### 2. New Files Created
+- `lib/supabase.ts` - Supabase client configuration and storage utilities
+- `lib/db/migrations/add_file_columns.sql` - Database migration script
+- `SUPABASE_STORAGE_SETUP.md` - Comprehensive setup guide
 
-3. **Updated `.env.example`**
-   - Removed old webhook URL variables
-   - Added `LINDY_API_KEY` as required variable
-   - Documented agent IDs
+### 3. Modified Files
+- `app/api/files/upload/route.ts` - Updated to upload files to Supabase Storage
+- `app/api/lindy/presales-report/route.ts` - Updated to pass file URLs to webhook
+- `app/api/lindy/slides/route.ts` - Updated to pass file URLs to webhook
+- `lib/db/index.ts` - Added support for new file columns in updateProfile function
 
-## What You Need to Do
+### 4. Database Schema Changes
+New columns added to `profiles` table:
+- `company_info_file` (TEXT) - URL to company info file in Supabase Storage
+- `company_info_text` (TEXT) - Company info entered as text
+- `slides_file` (TEXT) - URL to slide template file in Supabase Storage
 
-### Step 1: Get Your Lindy API Key
+## Pre-Deployment Steps
 
-1. Go to [Lindy Dashboard](https://app.lindy.ai)
-2. Click on your profile/settings
-3. Navigate to **Settings → API Keys**
-4. Click **Create New API Key**
-5. Copy the API key (you won't be able to see it again)
+### Step 1: Create Supabase Storage Bucket
 
-### Step 2: Add Environment Variable to Vercel
+1. Go to your Supabase project dashboard
+2. Navigate to **Storage** section
+3. Click **New bucket**
+4. Bucket name: `Files`
+5. Public bucket: **Yes**
+6. Click **Create bucket**
 
-1. Go to [Vercel Dashboard](https://vercel.com)
-2. Select the **AutoPrep-Team** project
-3. Go to **Settings → Environment Variables**
-4. Click **Add New**
-5. Fill in:
-   - **Name**: `LINDY_API_KEY`
-   - **Value**: (paste your Lindy API key)
-   - **Environments**: Select all (Production, Preview, Development)
-6. Click **Save**
+### Step 2: Configure Storage Policies
 
-### Step 3: Redeploy
+In Supabase SQL Editor, run:
 
-The deployment should happen automatically, but you can force a redeploy:
+```sql
+-- Allow public read access to all files
+CREATE POLICY "Public Access"
+ON storage.objects FOR SELECT
+USING ( bucket_id = 'Files' );
 
-1. Go to [Vercel Dashboard](https://vercel.com)
-2. Select the **AutoPrep-Team** project
-3. Go to **Deployments**
-4. Find the latest deployment
-5. Click the three dots menu
-6. Select **Redeploy**
+-- Allow authenticated users to upload files
+CREATE POLICY "Authenticated users can upload"
+ON storage.objects FOR INSERT
+WITH CHECK ( bucket_id = 'Files' );
 
-Or simply push a new commit to trigger a redeploy:
+-- Allow users to update files
+CREATE POLICY "Users can update files"
+ON storage.objects FOR UPDATE
+USING ( bucket_id = 'Files' );
+
+-- Allow users to delete files
+CREATE POLICY "Users can delete files"
+ON storage.objects FOR DELETE
+USING ( bucket_id = 'Files' );
+```
+
+### Step 3: Get Supabase Anon Key
+
+1. Go to Supabase project dashboard
+2. Navigate to **Settings** → **API**
+3. Copy the **anon** **public** key
+4. Save it for the next step
+
+### Step 4: Apply Database Migration
+
+In Supabase SQL Editor, run the migration:
+
+```sql
+-- Add file storage columns to profiles table
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS company_info_file TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS company_info_text TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS slides_file TEXT;
+
+-- Add indexes for faster lookups
+CREATE INDEX IF NOT EXISTS idx_profiles_company_info_file ON profiles(company_info_file);
+CREATE INDEX IF NOT EXISTS idx_profiles_slides_file ON profiles(slides_file);
+
+-- Add comments for documentation
+COMMENT ON COLUMN profiles.company_info_file IS 'URL to company information file stored in Supabase Storage bucket "Files"';
+COMMENT ON COLUMN profiles.company_info_text IS 'Company information entered as text by the user';
+COMMENT ON COLUMN profiles.slides_file IS 'URL to slide template file stored in Supabase Storage bucket "Files"';
+```
+
+## Deployment Steps
+
+### Step 1: Set Environment Variables in Vercel
+
+1. Go to Vercel dashboard: https://vercel.com/scott-s-projects-53d26130/autoprep-team-subdomain-deployment/settings/environment-variables
+
+2. Add the following environment variable:
+   - Name: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - Value: [Your Supabase anon key from Step 3 above]
+   - Environments: Production, Preview, Development
+
+3. Click **Save**
+
+### Step 2: Deploy to Production
+
 ```bash
-git commit --allow-empty -m "chore: trigger redeploy with LINDY_API_KEY configured"
+# 1. Commit all changes
+git add -A
+git commit -m "feat: migrate file storage to Supabase Storage"
+
+# 2. Push to GitHub (triggers auto-deploy)
 git push origin main
+
+# 3. Wait 1-2 minutes for Vercel deployment
+# 4. Check deployment status at:
+# https://vercel.com/scott-s-projects-53d26130/autoprep-team-subdomain-deployment/deployments
 ```
 
-### Step 4: Verify the Fix
+### Step 3: Verify Deployment
 
-1. Go to [team.autoprep.ai/profile/3](https://team.autoprep.ai/profile/3)
-2. Scroll down to Calendar Events
-3. Click "PDF Pre-sales Report" on the "ATT intro call test" event
-4. The button should show "Generating Report..." with a spinner
-5. Wait 30-60 seconds for the agent to process
-6. The button should change to "Download PDF Report" (green)
-7. Click to download and verify the PDF
+1. Go to https://team.autoprep.ai/profile/scott-autoprep
 
-## How It Works
+2. Scroll to "Upload Company Files" section
 
-### Complete Flow
+3. Test Company Information upload:
+   - Click "Upload File" tab
+   - Select a PDF or Word document
+   - Click "Upload"
+   - Verify success message appears
 
-```
-1. User clicks "PDF Pre-sales Report" button
-   ↓
-2. Frontend sends POST to /api/lindy/presales-report with:
-   - event_id
-   - event_title
-   - event_description
-   - attendee_email
-   ↓
-3. Backend updates database status to "processing"
-   ↓
-4. Backend calls Lindy API:
-   POST https://api.lindy.ai/v1/agents/68aa4cb7ebbc5f9222a2696e/invoke
-   Headers: Authorization: Bearer {LINDY_API_KEY}
-   Body: {
-     input: {
-       calendar_event_id,
-       event_title,
-       event_description,
-       attendee_email,
-       webhook_url: "https://team.autoprep.ai/api/lindy/webhook"
-     }
-   }
-   ↓
-5. Lindy agent receives the request and starts processing
-   ↓
-6. Agent generates PDF and calls webhook:
-   POST https://team.autoprep.ai/api/lindy/webhook
-   Body: {
-     agent_id: "68aa4cb7ebbc5f9222a2696e",
-     calendar_event_id: 123,
-     status: "completed",
-     pdf_url: "https://storage.example.com/report.pdf"
-   }
-   ↓
-7. Backend receives webhook and updates database:
-   - Sets status to "completed"
-   - Stores pdf_url
-   ↓
-8. Frontend polls for status updates every 10 seconds
-   ↓
-9. Frontend detects status change and updates button:
-   - Changes text to "Download PDF Report"
-   - Changes color to green
-   - Enables click to download
+4. Check Supabase Storage:
+   - Go to Supabase dashboard → Storage → Files bucket
+   - Verify file appears in the bucket
+
+5. Check Database:
+   - Go to Supabase dashboard → Table Editor → profiles
+   - Find your profile row
+   - Verify `company_info_file` column contains the file URL
+
+6. Test Slide Template upload:
+   - Select a PowerPoint or PDF file
+   - Click "Upload"
+   - Verify success message appears
+   - Check Supabase Storage and database as above
+
+## Post-Deployment Verification
+
+### Test Pre-sales Report Generation
+
+1. Go to a profile with uploaded company info
+2. Click "Generate Pre-Sales Report" on a calendar event
+3. Check Vercel logs for webhook payload
+4. Verify `company_info_file_url` or `company_info_text` is included in payload
+
+### Test Slides Generation
+
+1. Go to a profile with uploaded slide template
+2. Click "Generate Slides" on a calendar event
+3. Check Vercel logs for webhook payload
+4. Verify `slides_template_url` is included in payload
+
+## Rollback Plan
+
+If issues occur, you can rollback:
+
+### Option 1: Vercel Dashboard Rollback
+
+1. Go to https://vercel.com/scott-s-projects-53d26130/autoprep-team-subdomain-deployment/deployments
+2. Find the previous working deployment
+3. Click three dots (...) → "Promote to Production"
+
+### Option 2: Git Revert
+
+```bash
+git revert HEAD
+git push origin main
 ```
 
 ## Troubleshooting
 
-### Button Still Shows "Generating Report..."
+### Issue: "Supabase Storage not configured"
 
-**Check 1: Is LINDY_API_KEY configured?**
+**Cause:** `NEXT_PUBLIC_SUPABASE_ANON_KEY` not set in Vercel
+
+**Solution:** Add the environment variable in Vercel dashboard and redeploy
+
+### Issue: "Failed to upload file: new row violates row-level security policy"
+
+**Cause:** Storage bucket policies not configured
+
+**Solution:** Run the storage policy SQL commands in Supabase SQL Editor
+
+### Issue: File uploads but URL not stored in database
+
+**Cause:** Database migration not applied
+
+**Solution:** Run the migration SQL in Supabase SQL Editor
+
+### Issue: Webhook doesn't receive file URLs
+
+**Cause:** Old code still deployed
+
+**Solution:** Verify latest commit is deployed in Vercel
+
+## Environment Variables Summary
+
+### Production (Vercel)
+
 ```bash
-# In Vercel dashboard, go to Settings → Environment Variables
-# Verify LINDY_API_KEY is listed and has a value
+# Existing variables (already configured)
+POSTGRES_URL=postgresql://postgres.kmswrzzlirdfnzzbnrpo:imAVAKBD6QwffO2z@aws-1-us-east-1.pooler.supabase.com:6543/postgres
+LINDY_PRESALES_WEBHOOK_URL=https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa
+LINDY_SLIDES_WEBHOOK_URL=https://public.lindy.ai/api/v1/webhooks/lindy/66bf87f2-034e-463b-a7da-83e9adbf03d4
+LINDY_PRESALES_WEBHOOK_SECRET=2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07
+LINDY_SLIDES_WEBHOOK_SECRET=f395b62647c72da770de97f7715ee68824864b21b9a2435bdaab7004762359c5
+NEXT_PUBLIC_APP_URL=https://team.autoprep.ai
+LINDY_CALLBACK_URL=https://team.autoprep.ai/api/lindy/webhook
+
+# NEW variable to add
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[Get from Supabase dashboard → Settings → API]
 ```
 
-**Check 2: Is the API key valid?**
-- Go to Lindy Dashboard
-- Check if the API key is still active
-- Try creating a new API key if the old one is expired
+## Testing Checklist
 
-**Check 3: Check server logs**
-- Go to Vercel Dashboard
-- Select AutoPrep-Team project
-- Go to Deployments → Latest → Logs
-- Look for error messages about LINDY_API_KEY or Lindy API failures
-
-### Button Shows "Retry Report"
-
-This means the agent failed to process. Possible causes:
-1. Agent couldn't find company information for the attendee
-2. PDF generation failed
-3. Network error during processing
-
-**Solution:**
-1. Click "Retry Report" to try again
-2. Check Lindy agent logs for error details
-3. Verify attendee email is valid
-
-### PDF URL Not Accessible
-
-If the button shows "Download PDF Report" but clicking doesn't work:
-1. Check if the storage service is accessible
-2. Verify the PDF URL in the database
-3. Try regenerating the report
-
-## Agent IDs
-
-These are hardcoded in the endpoints:
-
-- **Pre-sales Report Agent**: `68aa4cb7ebbc5f9222a2696e`
-- **Slides Generation Agent**: `68ed392b02927e7ace232732`
-
-If you need to change these, update:
-- `/app/api/lindy/presales-report/route.ts` (line with `const agentId = ...`)
-- `/app/api/lindy/slides/route.ts` (line with `const agentId = ...`)
-
-## Testing Locally
-
-If you want to test locally before deploying:
-
-1. Create a `.env.local` file in the project root:
-```bash
-LINDY_API_KEY=your_lindy_api_key_here
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-2. Run the development server:
-```bash
-npm run dev
-```
-
-3. Navigate to `http://localhost:3000/profile/3`
-
-4. Click "PDF Pre-sales Report" button
-
-5. Check the terminal for logs to see if the Lindy API call succeeds
-
-## Files Modified
-
-- `/app/api/lindy/presales-report/route.ts` - Updated to use Lindy API
-- `/app/api/lindy/slides/route.ts` - Updated to use Lindy API
-- `.env.example` - Updated environment variables
-- `LINDY_API_INTEGRATION_GUIDE.md` - Comprehensive integration guide
+- [ ] Supabase Storage bucket "Files" created
+- [ ] Storage policies applied
+- [ ] Database migration applied
+- [ ] Environment variable `NEXT_PUBLIC_SUPABASE_ANON_KEY` set in Vercel
+- [ ] Code deployed to production
+- [ ] Company info file upload works
+- [ ] Slide template file upload works
+- [ ] Files appear in Supabase Storage
+- [ ] File URLs stored in database
+- [ ] Pre-sales webhook includes file URLs
+- [ ] Slides webhook includes file URLs
 
 ## Support
 
-If you encounter issues:
+For issues or questions:
+- **Email:** scottsumerford@gmail.com
+- **Vercel Dashboard:** https://vercel.com/scott-s-projects-53d26130/autoprep-team-subdomain-deployment
+- **Supabase Dashboard:** https://supabase.com/dashboard
 
-1. **Check Lindy Documentation**: https://docs.lindy.ai
-2. **Check Vercel Logs**: Vercel Dashboard → Deployments → Logs
-3. **Check Database**: Verify calendar_events table has correct status values
-4. **Check Frontend Console**: Browser DevTools → Console for errors
+---
 
-## Next Steps
-
-After deploying:
-
-1. ✅ Add LINDY_API_KEY to Vercel environment variables
-2. ✅ Redeploy the application
-3. ✅ Test with "ATT intro call test" event
-4. ✅ Verify PDF is generated and downloadable
-5. ✅ Test with "Test new process" event
-6. ✅ Test slides generation
-7. ✅ Monitor for any errors in Vercel logs
-
-## Questions?
-
-Refer to:
-- `LINDY_API_INTEGRATION_GUIDE.md` - Complete technical documentation
-- `AGENT_CONTEXT.md` - Agent configuration details
-- Lindy Dashboard - Agent logs and API key management
+**Deployment Date:** November 4, 2025
+**Version:** 2.0.0 - Supabase Storage Integration

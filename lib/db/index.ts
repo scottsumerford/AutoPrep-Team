@@ -300,6 +300,21 @@ export async function updateProfile(id: number, data: Partial<Profile>): Promise
       values.push(data.company_info_url);
       console.log(`🏢 Updating company info URL`);
     }
+    if (data.company_info_file !== undefined) {
+      updates.push(`company_info_file = $${paramIndex++}`);
+      values.push(data.company_info_file);
+      console.log(`📄 Updating company info file`);
+    }
+    if (data.company_info_text !== undefined) {
+      updates.push(`company_info_text = $${paramIndex++}`);
+      values.push(data.company_info_text);
+      console.log(`📝 Updating company info text`);
+    }
+    if (data.slides_file !== undefined) {
+      updates.push(`slides_file = $${paramIndex++}`);
+      values.push(data.slides_file);
+      console.log(`📊 Updating slides file`);
+    }
 
     updates.push(`updated_at = $${paramIndex++}`);
     values.push(new Date());

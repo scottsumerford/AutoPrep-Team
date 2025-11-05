@@ -7,23 +7,90 @@ https://nextjs.org/telemetry
    ▲ Next.js 15.5.3 (Turbopack)
 
    Creating an optimized production build ...
- ✓ Finished writing to disk in 30ms
- ✓ Compiled successfully in 6.0s
+ ✓ Finished writing to disk in 31ms
+ ✓ Compiled successfully in 7.8s
    Linting and checking validity of types ...
 
-Failed to compile.
+./app/api/db/apply-schema/route.ts
+9:28  Warning: 'request' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./app/api/db/fix-airtable-ids/route.ts
+4:28  Warning: 'request' is defined but never used.  @typescript-eslint/no-unused-vars
 
 ./app/api/db/migrate/route.ts
 7:28  Warning: 'request' is defined but never used.  @typescript-eslint/no-unused-vars
 
 ./app/profile/[slug]/page.tsx
-212:10  Warning: 'slidesContent' is assigned a value but never used.  @typescript-eslint/no-unused-vars
-212:25  Warning: 'setSlidesContent' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+217:10  Warning: 'slidesContent' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+217:25  Warning: 'setSlidesContent' is assigned a value but never used.  @typescript-eslint/no-unused-vars
 
-./lib/airtable.ts
-11:20  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
-18:20  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
-79:36  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+./components/GeneratedReportsSection.tsx
+4:10  Warning: 'Button' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./lib/pdf-generator.ts
+2:10  Warning: 'Readable' is defined but never used.  @typescript-eslint/no-unused-vars
 
 info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
-error: script "build" exited with code 1
+   Collecting page data ...
+❌ No POSTGRES_URL found in environment variables
+Available POSTGRES env vars: []
+⚠️ No POSTGRES_URL found - using in-memory storage
+❌ No POSTGRES_URL found in environment variables
+Available POSTGRES env vars: []
+❌ No POSTGRES_URL found in environment variables
+Available POSTGRES env vars: []
+⚠️ No POSTGRES_URL found - using in-memory storage
+⚠️ No POSTGRES_URL found - using in-memory storage
+⚠️ POSTGRES_URL not found - Supabase storage will not be available
+⚠️ Supabase client not configured - file uploads will be disabled
+   Generating static pages (0/23) ...
+❌ No POSTGRES_URL found in environment variables
+Available POSTGRES env vars: []
+⚠️ No POSTGRES_URL found - using in-memory storage
+   Generating static pages (5/23) 
+   Generating static pages (11/23) 
+⚠️ POSTGRES_URL not found - Supabase storage will not be available
+⚠️ Supabase client not configured - file uploads will be disabled
+   Generating static pages (17/23) 
+ ✓ Generating static pages (23/23)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                               Size  First Load JS
+┌ ○ /                                  26.6 kB         141 kB
+├ ○ /_not-found                            0 B         114 kB
+├ ƒ /api/auth/google                       0 B            0 B
+├ ƒ /api/auth/google/disconnect            0 B            0 B
+├ ƒ /api/auth/outlook                      0 B            0 B
+├ ƒ /api/calendar/[id]                     0 B            0 B
+├ ƒ /api/calendar/sync                     0 B            0 B
+├ ƒ /api/db/apply-schema                   0 B            0 B
+├ ƒ /api/db/fix-airtable-ids               0 B            0 B
+├ ƒ /api/db/init                           0 B            0 B
+├ ƒ /api/db/migrate                        0 B            0 B
+├ ƒ /api/files/upload                      0 B            0 B
+├ ƒ /api/files/upload-text                 0 B            0 B
+├ ƒ /api/health                            0 B            0 B
+├ ƒ /api/lindy/presales-report             0 B            0 B
+├ ƒ /api/lindy/presales-report-status      0 B            0 B
+├ ƒ /api/lindy/slides                      0 B            0 B
+├ ƒ /api/lindy/slides-status               0 B            0 B
+├ ƒ /api/lindy/webhook                     0 B            0 B
+├ ƒ /api/profiles                          0 B            0 B
+├ ƒ /api/profiles/[id]                     0 B            0 B
+├ ƒ /api/profiles/slug/[slug]              0 B            0 B
+├ ƒ /api/tokens/[id]                       0 B            0 B
+├ ○ /privacypolicy                         0 B         114 kB
+├ ƒ /profile/[slug]                    37.9 kB         152 kB
+└ ○ /termsofservice                        0 B         114 kB
++ First Load JS shared by all           134 kB
+  ├ chunks/5564f493499345f1.js         24.1 kB
+  ├ chunks/8082ab48faca5ea1.js         17.2 kB
+  ├ chunks/d04efc723d1783d5.js         59.2 kB
+  ├ chunks/4743658983ab38c4.css        19.2 kB
+  └ other shared chunks (total)        14.3 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

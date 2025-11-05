@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProfileById, updateProfile } from '@/lib/db';
+import { uploadFileToSupabase, isSupabaseConfigured } from '@/lib/supabase';
 
 const ALLOWED_FILE_TYPES = [
   'application/pdf',
@@ -18,8 +19,8 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 /**
  * POST /api/files/upload
  * 
- * Uploads files directly to Supabase database (no Airtable)
- * Files are stored as base64 encoded strings in the profiles table
+ * Uploads files to Supabase Storage bucket 'Files'
+ * Stores the public URL in the profiles table
  */
 export async function POST(request: NextRequest) {
   try {
@@ -68,6 +69,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      console.error('❌ Supabase Storage not configured');
+      return NextResponse.json(
+        { error: 'File storage not configured. Please contact administrator.' },
+        { status: 500 }
+      );
+    }
+
     // Get profile
     console.log('🔍 Fetching profile from database...');
     const profile = await getProfileById(parseInt(profileId));
@@ -83,41 +93,44 @@ export async function POST(request: NextRequest) {
       email: profile.email,
     });
 
-    // Convert file to base64 for storage in Supabase
-    console.log('📝 Converting file to base64...');
-    const buffer = await file.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString('base64');
-    
-    // Store file with metadata
-    const fileData = {
-      filename: file.name,
-      mimetype: file.type,
-      size: file.size,
-      data: base64,
-    };
-    
-    const fileDataString = JSON.stringify(fileData);
-    console.log('✅ File converted to base64, total size:', fileDataString.length);
+    // Generate unique file path
+    const timestamp = Date.now();
+    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const filePath = `${profile.id}/${fileType}/${timestamp}_${sanitizedFileName}`;
 
-    // Update database - store directly in Supabase
-    console.log('📝 Updating profile in Supabase...');
+    console.log('📁 File path:', filePath);
+
+    // Upload to Supabase Storage
+    console.log('☁️ Uploading to Supabase Storage bucket "Files"...');
+    const fileUrl = await uploadFileToSupabase(
+      'Files',
+      filePath,
+      file,
+      file.type
+    );
+
+    console.log('✅ File uploaded to Supabase Storage:', fileUrl);
+
+    // Update database with file URL
+    console.log('📝 Updating profile in database...');
     const updateData: Record<string, string> = {};
     
     if (fileType === 'company_info') {
-      updateData.company_info_file = fileDataString;
+      updateData.company_info_file = fileUrl;
     } else if (fileType === 'slides') {
-      updateData.slides_file = fileDataString;
+      updateData.slides_file = fileUrl;
     }
 
     await updateProfile(profile.id, updateData);
-    console.log('✅ Profile updated in Supabase');
+    console.log('✅ Profile updated in database');
 
-    console.log('✅ File upload completed successfully (stored in Supabase)');
+    console.log('✅ File upload completed successfully');
     return NextResponse.json({
       success: true,
       message: `${fileType === 'company_info' ? 'Company info' : 'Slides'} uploaded successfully`,
       filename: file.name,
       size: file.size,
+      url: fileUrl,
     });
   } catch (error) {
     console.error('❌ Unexpected error uploading file:', error);
@@ -125,7 +138,7 @@ export async function POST(request: NextRequest) {
     console.error('📋 Error message:', errorMessage);
     return NextResponse.json(
       { 
-        error: 'Unexpected error', 
+        error: 'Failed to upload file', 
         message: errorMessage
       },
       { status: 500 }

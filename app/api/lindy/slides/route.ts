@@ -5,7 +5,7 @@ import { updateEventSlidesStatus, getEventById, markStaleSlidesRuns, getProfileB
  * POST /api/lindy/slides
  * 
  * Triggers the Lindy Slides Generation agent to generate slides for a calendar event.
- * Includes slide template file from Supabase in the webhook payload.
+ * Includes slide template file URL from Supabase Storage in the webhook payload.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -68,24 +68,6 @@ export async function POST(request: NextRequest) {
     console.log('🔗 [SLIDES_WEBHOOK] Triggering Slides Generation Lindy agent via webhook');
     console.log('📍 Webhook URL:', webhookUrl);
 
-    // Prepare slide template file
-    let slideTemplate = null;
-    
-    if (profile.slides_file) {
-      try {
-        const fileData = JSON.parse(profile.slides_file);
-        slideTemplate = {
-          filename: fileData.filename,
-          mimetype: fileData.mimetype,
-          size: fileData.size,
-          data: fileData.data, // base64 encoded
-        };
-        console.log('📎 Using slide template file:', fileData.filename);
-      } catch (parseError) {
-        console.error('❌ Error parsing slide template file:', parseError);
-      }
-    }
-
     // Prepare the payload for the agent
     const agentPayload: Record<string, unknown> = {
       calendar_event_id: event_id,
@@ -96,14 +78,26 @@ export async function POST(request: NextRequest) {
       webhook_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
     };
 
-    // Add slide template to payload
-    if (slideTemplate) {
-      agentPayload.slide_template = slideTemplate;
+    // Add slide template file URL to payload
+    if (profile.slides_file) {
+      agentPayload.slides_template_url = profile.slides_file;
+      console.log('📎 Including slide template file URL:', profile.slides_file);
+    }
+
+    // Also include company info for context
+    if (profile.company_info_text) {
+      agentPayload.company_info_text = profile.company_info_text;
+      console.log('📝 Including company info text (length:', profile.company_info_text.length, ')');
+    }
+    
+    if (profile.company_info_file) {
+      agentPayload.company_info_file_url = profile.company_info_file;
+      console.log('📎 Including company info file URL:', profile.company_info_file);
     }
 
     console.log('📤 [SLIDES_WEBHOOK] Sending to agent:', JSON.stringify({
       ...agentPayload,
-      slide_template: slideTemplate ? `[FILE: ${slideTemplate.filename}]` : null
+      company_info_text: agentPayload.company_info_text ? `[TEXT: ${String(agentPayload.company_info_text).substring(0, 50)}...]` : undefined
     }, null, 2));
 
     // Call the webhook to invoke the agent

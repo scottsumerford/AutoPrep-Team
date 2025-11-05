@@ -5,7 +5,7 @@ import { updateEventPresalesStatus, getEventById, markStalePresalesRuns, getProf
  * POST /api/lindy/presales-report
  * 
  * Triggers the Lindy Pre-Sales Report agent to generate a report for a calendar event.
- * Includes company information (file or text) from Supabase in the webhook payload.
+ * Includes company information (file URL or text) from Supabase in the webhook payload.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -67,30 +67,6 @@ export async function POST(request: NextRequest) {
 
     console.log('🔗 [PRESALES_REPORT_WEBHOOK] Triggering Pre-sales Report Lindy agent via webhook');
 
-    // Prepare company information - prioritize text over file
-    let companyInfo = null;
-    let companyInfoType = null;
-    
-    if (profile.company_info_text) {
-      companyInfo = profile.company_info_text;
-      companyInfoType = 'text';
-      console.log('📝 Using company info text (length:', companyInfo.length, ')');
-    } else if (profile.company_info_file) {
-      try {
-        const fileData = JSON.parse(profile.company_info_file);
-        companyInfo = {
-          filename: fileData.filename,
-          mimetype: fileData.mimetype,
-          size: fileData.size,
-          data: fileData.data, // base64 encoded
-        };
-        companyInfoType = 'file';
-        console.log('📎 Using company info file:', fileData.filename);
-      } catch (parseError) {
-        console.error('❌ Error parsing company info file:', parseError);
-      }
-    }
-
     // Prepare the payload for the webhook
     const webhookPayload: Record<string, unknown> = {
       calendar_event_id: event_id,
@@ -101,15 +77,21 @@ export async function POST(request: NextRequest) {
       webhook_callback_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
     };
 
-    // Add company info to payload
-    if (companyInfo) {
-      webhookPayload.company_info = companyInfo;
-      webhookPayload.company_info_type = companyInfoType;
+    // Add company information to payload
+    // Priority: text > file URL
+    if (profile.company_info_text) {
+      webhookPayload.company_info_text = profile.company_info_text;
+      console.log('📝 Including company info text (length:', profile.company_info_text.length, ')');
+    }
+    
+    if (profile.company_info_file) {
+      webhookPayload.company_info_file_url = profile.company_info_file;
+      console.log('📎 Including company info file URL:', profile.company_info_file);
     }
 
     console.log('📤 [PRESALES_REPORT_WEBHOOK] Payload:', JSON.stringify({
       ...webhookPayload,
-      company_info: companyInfoType === 'file' ? '[FILE DATA]' : companyInfo ? `[TEXT: ${String(companyInfo).substring(0, 50)}...]` : null
+      company_info_text: webhookPayload.company_info_text ? `[TEXT: ${String(webhookPayload.company_info_text).substring(0, 50)}...]` : undefined
     }, null, 2));
 
     const headers: HeadersInit = {
