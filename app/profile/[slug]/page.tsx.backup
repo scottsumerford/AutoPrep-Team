@@ -6,8 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Calendar, FileText, Presentation, Upload, Mail, Filter, RefreshCw } from 'lucide-react';
+import { Calendar, FileText, Presentation, Mail, Filter, RefreshCw, Download, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,18 +18,23 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
+import { FileUploadSection } from '@/components/FileUploadSection';
 import { CalendarView } from './calendar-view';
+import { GeneratedReportsSection } from '@/components/GeneratedReportsSection';
 
 interface Profile {
   id: number;
   name: string;
   email: string;
+  url_slug: string;
   title?: string;
-  operation_mode: 'auto-sync' | 'manual';
-  manual_email?: string;
   keyword_filter?: string;
   google_access_token?: string;
   outlook_access_token?: string;
+  airtable_record_id?: string;
+  company_info_file?: string;
+  company_info_text?: string;
+  slides_file?: string;
 }
 
 interface CalendarEvent {
@@ -42,6 +46,16 @@ interface CalendarEvent {
   end_time: string;
   attendees?: string[];
   source: 'google' | 'outlook';
+  presales_report_status?: 'pending' | 'processing' | 'completed' | 'failed';
+  presales_report_url?: string;
+  presales_report_content?: string;
+  presales_report_generated_at?: string;
+  presales_report_started_at?: string;
+  slides_status?: 'pending' | 'processing' | 'completed' | 'failed';
+  slides_url?: string;
+  slides_generated_at?: string;
+  slides_started_at?: string;
+  created_at?: string;
 }
 
 interface TokenStats {
@@ -51,10 +65,137 @@ interface TokenStats {
   total: number;
 }
 
+// Helper function to extract the OTHER attendee's email (not the user's)
+// Compares user's email against event attendees and returns the OTHER person's email
+// Prioritizes external attendees (different domain) over internal ones
+function getOtherAttendeeEmail(userEmail: string, attendees?: string[]): string {
+  if (!attendees || attendees.length === 0) {
+    console.warn('⚠️ No attendees found for event');
+    return '';
+  }
+
+  const userEmailLower = userEmail.toLowerCase();
+  const userDomain = userEmail.split('@')[1]?.toLowerCase() || '';
+  
+  console.log('🔍 Finding invitee for pre-sales report:', {
+    userEmail: userEmailLower,
+    userDomain,
+    attendees: attendees.map(a => a.toLowerCase()),
+    attendeeCount: attendees.length
+  });
+
+  // First, try to find an attendee that is NOT the user AND NOT on the user's domain
+  const externalAttendee = attendees.find(email => {
+    const emailLower = email.toLowerCase();
+    const attendeeDomain = email.split('@')[1]?.toLowerCase() || '';
+    
+    // Exclude the user's own email
+    if (emailLower === userEmailLower) {
+      console.log(`  ⊘ Skipping user's own email: ${emailLower}`);
+      return false;
+    }
+    
+    // Exclude attendees on the same domain as the user
+    if (attendeeDomain === userDomain) {
+      console.log(`  ⊘ Skipping same-domain attendee: ${emailLower} (domain: ${attendeeDomain})`);
+      return false;
+    }
+    
+    console.log(`  ✓ Found external attendee: ${emailLower} (domain: ${attendeeDomain})`);
+    return true;
+  });
+
+  if (externalAttendee) {
+    console.log(`✅ Selected invitee for pre-sales report: ${externalAttendee.toLowerCase()}`);
+    return externalAttendee;
+  }
+
+  // Fallback: if no external attendee, find any attendee that's not the user
+  const otherAttendee = attendees.find(email => {
+    const emailLower = email.toLowerCase();
+    if (emailLower === userEmailLower) {
+      console.log(`  ⊘ Skipping user's own email: ${emailLower}`);
+      return false;
+    }
+    console.log(`  ✓ Found internal attendee (fallback): ${emailLower}`);
+    return true;
+  });
+
+  if (otherAttendee) {
+    console.log(`⚠️ No external attendee found, using internal attendee: ${otherAttendee.toLowerCase()}`);
+    return otherAttendee;
+  }
+
+  console.warn('❌ No suitable attendee found for pre-sales report');
+  return '';
+}
+
+
+// Helper function to check if a report is stale (processing > 20 minutes)
+function isReportStale(event: CalendarEvent): boolean {
+  if (event.presales_report_status !== 'processing') {
+    return false;
+  }
+  
+  // If it has a URL, it's not stale
+  if (event.presales_report_url) {
+    return false;
+  }
+  
+  // Check if presales_report_started_at is more than 20 minutes ago
+  if (!event.presales_report_started_at) {
+    return false;
+  }
+  
+  const startedTime = new Date(event.presales_report_started_at).getTime();
+  const now = new Date().getTime();
+  const twentyMinutesMs = 20 * 60 * 1000;
+  
+  return (now - startedTime) > twentyMinutesMs;
+}
+
+// Helper function to check if slides are stale (processing > 20 minutes)
+function areSlidesStale(event: CalendarEvent): boolean {
+  if (event.slides_status !== 'processing') {
+    return false;
+  }
+  
+  // If it has a URL, it's not stale
+  if (event.slides_url) {
+    return false;
+  }
+  
+  // Check if slides_started_at is more than 20 minutes ago
+  if (!event.slides_started_at) {
+    return false;
+  }
+  
+  const startedTime = new Date(event.slides_started_at).getTime();
+  const now = new Date().getTime();
+  const twentyMinutesMs = 20 * 60 * 1000;
+  
+  return (now - startedTime) > twentyMinutesMs;
+}
+
+// Helper function to format remaining time
+function formatTimeRemaining(startedAt: string): string {
+  const startedTime = new Date(startedAt).getTime();
+  const now = new Date().getTime();
+  const twentyMinutesMs = 20 * 60 * 1000;
+  const elapsedMs = now - startedTime;
+  const remainingMs = Math.max(0, twentyMinutesMs - elapsedMs);
+  
+  const minutes = Math.floor(remainingMs / 60000);
+  const seconds = Math.floor((remainingMs % 60000) / 1000);
+  
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
 export default function ProfilePage() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const profileId = params.id as string;
+  const profileSlug = params.slug as string;
+  const synced = searchParams.get('synced');
   
   const [profile, setProfile] = useState<Profile | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -62,498 +203,800 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [keywordFilter, setKeywordFilter] = useState('');
-  const [manualEmail, setManualEmail] = useState('');
   const [showGoogleDialog, setShowGoogleDialog] = useState(false);
   const [showOutlookDialog, setShowOutlookDialog] = useState(false);
+  const [showGoogleDisconnectDialog, setShowGoogleDisconnectDialog] = useState(false);
+  const [showOutlookDisconnectDialog, setShowOutlookDisconnectDialog] = useState(false);
+  const [generatingReportId, setGeneratingReportId] = useState<number | null>(null);
+  const [generatingSlidesId, setGeneratingSlidesId] = useState<number | null>(null);
+  const [reportPollingId, setReportPollingId] = useState<number | null>(null);
+  const [slidesPollingId, setSlidesPollingId] = useState<number | null>(null);
+  const [reportTimeRemaining, setReportTimeRemaining] = useState<{ [key: number]: string }>({});
+  const [slidesTimeRemaining, setSlidesTimeRemaining] = useState<{ [key: number]: string }>({});
+  const [reportContent, setReportContent] = useState<{ [key: number]: string }>({});
+  const [slidesContent, setSlidesContent] = useState<{ [key: number]: string }>({});
 
   const fetchProfile = useCallback(async () => {
     try {
-      const response = await fetch(`/api/profiles/${profileId}`);
+      // Fetch profile by URL slug
+      const response = await fetch(`/api/profiles/slug/${profileSlug}`);
+      if (!response.ok) {
+        throw new Error('Profile not found');
+      }
       const data = await response.json();
       setProfile(data);
       setKeywordFilter(data.keyword_filter || '');
-      setManualEmail(data.manual_email || '');
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('❌ Error fetching profile:', error);
     } finally {
       setLoading(false);
     }
-  }, [profileId]);
+  }, [profileSlug]);
 
   const fetchEvents = useCallback(async () => {
+    if (!profile) return;
     try {
-      const response = await fetch(`/api/calendar/${profileId}`);
+      const response = await fetch(`/api/calendar/${profile.id}`);
       const data = await response.json();
       setEvents(data);
     } catch (error) {
       console.error('Error fetching events:', error);
     }
-  }, [profileId]);
+  }, [profile]);
 
   const fetchTokenStats = useCallback(async () => {
+    if (!profile) return;
     try {
-      const response = await fetch(`/api/tokens/${profileId}`);
+      const response = await fetch(`/api/tokens/${profile.id}`);
       const data = await response.json();
       setTokenStats(data);
     } catch (error) {
       console.error('Error fetching token stats:', error);
     }
-  }, [profileId]);
+  }, [profile]);
 
-  const syncCalendar = useCallback(async () => {
-    if (!profile?.google_access_token && !profile?.outlook_access_token) {
-      return;
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  // Refresh profile when synced parameter is present (after OAuth callback)
+  useEffect(() => {
+    if (synced === 'true' && profile) {
+      console.log('🔄 Refreshing profile after OAuth sync...');
+      fetchProfile();
     }
+  }, [synced, profile, fetchProfile]);
 
+  useEffect(() => {
+    if (profile) {
+      fetchEvents();
+      fetchTokenStats();
+    }
+  }, [profile, fetchEvents, fetchTokenStats]);
+
+  // Timer for report time remaining
+  useEffect(() => {
+    if (reportPollingId === null) return;
+
+    const interval = setInterval(() => {
+      setEvents(prevEvents => {
+        const event = prevEvents.find(e => e.id === reportPollingId);
+        if (event && event.presales_report_started_at) {
+          setReportTimeRemaining(prev => ({
+            ...prev,
+            [reportPollingId]: formatTimeRemaining(event.presales_report_started_at || "")
+          }));
+        }
+        return prevEvents;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [reportPollingId]);
+
+  // Timer for slides time remaining
+  useEffect(() => {
+    if (slidesPollingId === null) return;
+
+    const interval = setInterval(() => {
+      setEvents(prevEvents => {
+        const event = prevEvents.find(e => e.id === slidesPollingId);
+        if (event && event.slides_started_at) {
+          setSlidesTimeRemaining(prev => ({
+            ...prev,
+            [slidesPollingId]: formatTimeRemaining(event.slides_started_at || "")
+          }));
+        }
+        return prevEvents;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [slidesPollingId]);
+
+  // Polling for report status
+  useEffect(() => {
+    if (reportPollingId === null) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/lindy/presales-report-status?event_id=${reportPollingId}`);
+        const data = await response.json();
+
+        if (data.found && data.reportUrl) {
+          console.log('✅ Report found with URL:', data.reportUrl);
+          setEvents(prevEvents =>
+            prevEvents.map(e =>
+              e.id === reportPollingId
+                ? { 
+                    ...e, 
+                    presales_report_status: 'completed', 
+                    presales_report_url: data.reportUrl,
+                    presales_report_content: data.reportContent || e.presales_report_content
+                  }
+                : e
+            )
+          );
+          // Store report content if available
+          if (data.reportContent) {
+            setReportContent(prev => ({
+              ...prev,
+              [reportPollingId]: data.reportContent
+            }));
+          }
+          setReportPollingId(null);
+        } else if (data.found && !data.reportUrl) {
+          // Report found but URL not ready yet, keep polling
+          console.log('⏳ Report found but PDF URL not ready yet, continuing to poll...');
+        } else if (events.find(e => e.id === reportPollingId) && isReportStale(events.find(e => e.id === reportPollingId)!)) {
+          console.log('⏱️ Report generation timeout - showing try again');
+          setEvents(prevEvents =>
+            prevEvents.map(e =>
+              e.id === reportPollingId
+                ? { ...e, presales_report_status: 'processing' }
+                : e
+            )
+          );
+          setReportPollingId(null);
+        }
+      } catch (error) {
+        console.error('Error polling report status:', error);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [reportPollingId, events]);
+
+  // Polling for slides status
+  useEffect(() => {
+    if (slidesPollingId === null) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/lindy/slides-status?event_id=${slidesPollingId}`);
+        const data = await response.json();
+
+        if (data.found && data.slidesUrl) {
+          console.log('✅ Slides found:', data.slidesUrl);
+          setEvents(prevEvents =>
+            prevEvents.map(e =>
+              e.id === slidesPollingId
+                ? { ...e, slides_status: 'completed', slides_url: data.slidesUrl }
+                : e
+            )
+          );
+          setSlidesPollingId(null);
+        } else if (events.find(e => e.id === slidesPollingId) && areSlidesStale(events.find(e => e.id === slidesPollingId)!)) {
+          console.log('⏱️ Slides generation timeout - showing try again');
+          setEvents(prevEvents =>
+            prevEvents.map(e =>
+              e.id === slidesPollingId
+                ? { ...e, slides_status: 'processing' }
+                : e
+            )
+          );
+          setSlidesPollingId(null);
+        }
+      } catch (error) {
+        console.error('Error polling slides status:', error);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [slidesPollingId, events]);
+
+  const handleSyncCalendar = async () => {
     setSyncing(true);
     try {
       const response = await fetch('/api/calendar/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile_id: profileId })
+        body: JSON.stringify({ profile_id: profile?.id }),
       });
-      
       if (response.ok) {
-        const data = await response.json();
-        console.log('Calendar synced:', data);
-        alert(`✅ Calendar synced successfully! ${data.synced_events || 0} events imported.`);
         await fetchEvents();
-      } else {
-        const errorData = await response.json();
-        console.error('Failed to sync calendar:', errorData);
-        alert(`❌ Failed to sync calendar: ${errorData.error || 'Unknown error'}\n\nDetails: ${errorData.details || 'No details available'}`);
       }
     } catch (error) {
       console.error('Error syncing calendar:', error);
-      alert(`❌ Error syncing calendar: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSyncing(false);
     }
-  }, [profileId, profile, fetchEvents]);
-
-  useEffect(() => {
-    fetchProfile();
-    fetchEvents();
-    fetchTokenStats();
-  }, [fetchProfile, fetchEvents, fetchTokenStats]);
-
-  // Auto-sync calendar when profile is loaded and has tokens
-  useEffect(() => {
-    if (profile && (profile.google_access_token || profile.outlook_access_token)) {
-      // Check if we just came back from OAuth (synced=true in URL)
-      const justSynced = searchParams.get('synced') === 'true';
-      
-      if (!justSynced) {
-        // Only auto-sync if we didn't just complete OAuth (which already synced)
-        syncCalendar();
-      }
-    }
-  }, [profile, searchParams, syncCalendar]);
-
-  useEffect(() => {
-    if (profile) {
-      document.title = `${profile.name} - AutoPrep.AI`;
-    }
-  }, [profile]);
-  
-  const handleOperationModeToggle = async (checked: boolean) => {
-    const newMode = checked ? 'auto-sync' : 'manual';
-    try {
-      await fetch(`/api/profiles/${profileId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operation_mode: newMode })
-      });
-      fetchProfile();
-    } catch (error) {
-      console.error('Error updating operation mode:', error);
-    }
   };
 
-  const handleFilterUpdate = async () => {
+  const handleGeneratePresalesReport = async (event: CalendarEvent) => {
+    setGeneratingReportId(event.id);
+      // Get the OTHER attendee's email (not the user's)
+      const otherAttendeeEmail = getOtherAttendeeEmail(profile?.email || '', event.attendees);
     try {
-      await fetch(`/api/profiles/${profileId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyword_filter: keywordFilter })
-      });
-      fetchEvents();
-    } catch (error) {
-      console.error('Error updating filter:', error);
-    }
-  };
-
-  const handleManualEmailUpdate = async () => {
-    try {
-      await fetch(`/api/profiles/${profileId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ manual_email: manualEmail })
-      });
-      fetchProfile();
-    } catch (error) {
-      console.error('Error updating manual email:', error);
-    }
-  };
-
-  const handleGenerateReport = async (event: CalendarEvent) => {
-    try {
+      // Call the API endpoint (which handles webhook authentication server-side)
       const response = await fetch('/api/lindy/presales-report', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          profile_id: profileId,
           event_id: event.id,
           event_title: event.title,
-          event_description: event.description,
-          attendee_email: profile?.operation_mode === 'manual' ? manualEmail : event.attendees?.[0]
-        })
+          event_description: event.description || '',
+          attendee_email: otherAttendeeEmail,
+        }),
       });
       
-      const data = await response.json();
-      if (data.success) {
-        alert('Pre-sales report generated successfully!');
-        fetchTokenStats();
+      if (response.ok) {
+        console.log('✅ Pre-sales report generation started');
+        // Update local state to show processing
+        const now = new Date().toISOString();
+        setEvents(events.map(e => 
+          e.id === event.id 
+            ? { ...e, presales_report_status: 'processing', presales_report_started_at: now }
+            : e
+        ));
+        // Start polling for the report
+        setReportPollingId(event.id);
+        setReportTimeRemaining(prev => ({
+          ...prev,
+          [event.id]: '20:00'
+        }));
+      } else {
+        console.error('❌ Failed to generate pre-sales report');
       }
     } catch (error) {
-      console.error('Error generating report:', error);
+      console.error('Error generating pre-sales report:', error);
+    } finally {
+      setGeneratingReportId(null);
     }
   };
 
   const handleGenerateSlides = async (event: CalendarEvent) => {
+    setGeneratingSlidesId(event.id);
+      // Get the OTHER attendee's email (not the user's)
+      const otherAttendeeEmail = getOtherAttendeeEmail(profile?.email || '', event.attendees);
     try {
+      // Call the API endpoint (which handles webhook authentication server-side)
       const response = await fetch('/api/lindy/slides', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          profile_id: profileId,
           event_id: event.id,
           event_title: event.title,
-          event_description: event.description,
-          attendee_email: profile?.operation_mode === 'manual' ? manualEmail : event.attendees?.[0]
-        })
+          event_description: event.description || '',
+          attendee_email: otherAttendeeEmail,
+        }),
       });
       
-      const data = await response.json();
-      if (data.success) {
-        alert('Slides generated successfully!');
-        fetchTokenStats();
+      if (response.ok) {
+        console.log('✅ Slides generation started');
+        // Update local state to show processing
+        const now = new Date().toISOString();
+        setEvents(events.map(e => 
+          e.id === event.id 
+            ? { ...e, slides_status: 'processing', slides_started_at: now }
+            : e
+        ));
+        // Start polling for the slides
+        setSlidesPollingId(event.id);
+        setSlidesTimeRemaining(prev => ({
+          ...prev,
+          [event.id]: '20:00'
+        }));
+      } else {
+        console.error('❌ Failed to generate slides');
       }
     } catch (error) {
       console.error('Error generating slides:', error);
+    } finally {
+      setGeneratingSlidesId(null);
     }
   };
 
-  const handleGoogleAuthConfirm = () => {
-    window.location.href = `/api/auth/google?profile_id=${profileId}`;
+  const handleUpdateKeywordFilter = async () => {
+    if (!profile) return;
+    try {
+      const response = await fetch(`/api/profiles/${profile.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword_filter: keywordFilter }),
+      });
+      if (response.ok) {
+        const updated = await response.json();
+        setProfile(updated);
+      }
+    } catch (error) {
+      console.error('Error updating keyword filter:', error);
+    }
   };
 
-  const handleOutlookAuthConfirm = () => {
-    window.location.href = `/api/auth/outlook?profile_id=${profileId}`;
+  const handleDisconnectGoogle = async () => {
+    if (!profile) return;
+    try {
+      const response = await fetch(`/api/profiles/${profile.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          google_access_token: undefined,
+          google_refresh_token: undefined
+        }),
+      });
+      if (response.ok) {
+        const updated = await response.json();
+        setProfile(updated);
+        setShowGoogleDisconnectDialog(false);
+      }
+    } catch (error) {
+      console.error('Error disconnecting Google:', error);
+    }
   };
 
-  if (loading || !profile) {
+  const handleDisconnectOutlook = async () => {
+    if (!profile) return;
+    try {
+      const response = await fetch(`/api/profiles/${profile.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          outlook_access_token: undefined,
+          outlook_refresh_token: undefined
+        }),
+      });
+      if (response.ok) {
+        const updated = await response.json();
+        setProfile(updated);
+        setShowOutlookDisconnectDialog(false);
+      }
+    } catch (error) {
+      console.error('Error disconnecting Outlook:', error);
+    }
+  };
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading profile...</div>
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p>Loading profile...</p>
+        </div>
       </div>
     );
   }
 
-  const filteredEvents = keywordFilter
-    ? events.filter(e => e.title.toLowerCase().includes(keywordFilter.toLowerCase()))
-    : events;
+  if (!profile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Profile Not Found</h1>
+          <p className="text-gray-600 mb-6">The profile you&apos;re looking for doesn&apos;t exist.</p>
+          <Link href="/">
+            <Button>Back to Dashboard</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <Link href="/" className="text-blue-600 hover:text-blue-800 mb-6 inline-flex items-center">
+          ← Back to Dashboard
+        </Link>
+
         <div className="mb-8">
-          <Link href="/" className="text-blue-600 hover:underline mb-4 inline-block">
-            ← Back to Dashboard
-          </Link>
           <h1 className="text-4xl font-bold mb-2">{profile.name}</h1>
-          <p className="text-slate-600 dark:text-slate-400">{profile.email}</p>
+          <p className="text-gray-600">{profile.email}</p>
+          <p className="text-sm text-gray-500 mt-2">Profile URL: https://team.autoprep.ai/profile/{profile.url_slug}</p>
         </div>
 
-        {/* Token Stats */}
-        {tokenStats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Total Tokens</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{tokenStats.total.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Agent Runs</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{tokenStats.agent_run.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Pre-sales Reports</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{tokenStats.presales_report.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Slides Generated</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{tokenStats.slides_generation.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Tokens</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{tokenStats?.total || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Agent Runs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{tokenStats?.agent_run || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Pre-sales Reports</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{tokenStats?.presales_report || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Slides Generated</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{tokenStats?.slides_generation || 0}</div>
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Profile Overview */}
-          <div className="lg:col-span-1 space-y-6">
+          {/* Profile Overview */}
+          <div className="lg:col-span-1">
             <Card>
               <CardHeader>
                 <CardTitle>Profile Overview</CardTitle>
                 <CardDescription>Manage authentication and settings</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* User Info */}
                 <div>
                   <Label className="text-sm font-medium">Name</Label>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{profile.name}</p>
+                  <p className="text-gray-700">{profile.name}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Email</Label>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{profile.email}</p>
+                  <p className="text-gray-700">{profile.email}</p>
                 </div>
                 {profile.title && (
                   <div>
                     <Label className="text-sm font-medium">Title</Label>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{profile.title}</p>
+                    <p className="text-gray-700">{profile.title}</p>
                   </div>
                 )}
 
-                {/* Authentication */}
-                <div className="space-y-3 pt-4 border-t">
-                  <Label className="text-sm font-medium">Authentication</Label>
-                  <Button 
-                    onClick={() => setShowGoogleDialog(true)}
-                    variant={profile.google_access_token ? "default" : "outline"}
-                    className="w-full justify-start gap-2"
-                  >
-                    <Mail className="w-4 h-4" />
-                    {profile.google_access_token ? 'Google Connected' : 'Connect Google'}
-                  </Button>
-                  <Button 
-                    onClick={() => setShowOutlookDialog(true)}
-                    variant={profile.outlook_access_token ? "default" : "outline"}
-                    className="w-full justify-start gap-2"
-                  >
-                    <Mail className="w-4 h-4" />
-                    {profile.outlook_access_token ? 'Outlook Connected' : 'Connect Outlook'}
-                  </Button>
-                  
-                  {/* Manual Sync Button */}
-                  {(profile.google_access_token || profile.outlook_access_token) && (
-                    <Button 
-                      onClick={syncCalendar}
-                      disabled={syncing}
-                      variant="outline"
-                      className="w-full justify-start gap-2"
-                    >
-                      <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                      {syncing ? 'Syncing...' : 'Sync Calendar Now'}
-                    </Button>
-                  )}
-                </div>
-
-                {/* Operation Mode */}
-                <div className="space-y-3 pt-4 border-t">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="operation-mode" className="text-sm font-medium">
-                      Auto-sync Calendar
-                    </Label>
-                    <Switch
-                      id="operation-mode"
-                      checked={profile.operation_mode === 'auto-sync'}
-                      onCheckedChange={handleOperationModeToggle}
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    {profile.operation_mode === 'auto-sync' 
-                      ? 'Automatically syncing with your calendar' 
-                      : 'Manual email lookup mode'}
-                  </p>
-                </div>
-
-                {/* Manual Email Input */}
-                {profile.operation_mode === 'manual' && (
+                <div className="border-t pt-6">
+                  <Label className="text-sm font-medium mb-3 block">Calendar Authentication</Label>
                   <div className="space-y-2">
-                    <Label htmlFor="manual-email">Attendee Email Address</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="manual-email"
-                        type="email"
-                        placeholder="attendee@company.com"
-                        value={manualEmail}
-                        onChange={(e) => setManualEmail(e.target.value)}
-                      />
-                      <Button onClick={handleManualEmailUpdate} size="sm">
-                        Save
+                    {profile.google_access_token ? (
+                      <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded">
+                        <span className="text-sm font-medium text-green-700">✓ Google Connected</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowGoogleDisconnectDialog(true)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          Disconnect
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setShowGoogleDialog(true)}
+                      >
+                        <Mail className="w-4 h-4 mr-2" />
+                        Connect Google
                       </Button>
-                    </div>
+                    )}
+                    {profile.outlook_access_token ? (
+                      <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded">
+                        <span className="text-sm font-medium text-green-700">✓ Outlook Connected</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowOutlookDisconnectDialog(true)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          Disconnect
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setShowOutlookDialog(true)}
+                      >
+                        <Mail className="w-4 h-4 mr-2" />
+                        Connect Outlook
+                      </Button>
+                    )}
                   </div>
-                )}
+                </div>
 
-                {/* Keyword Filter */}
-                <div className="space-y-2 pt-4 border-t">
-                  <Label htmlFor="keyword-filter" className="flex items-center gap-2">
-                    <Filter className="w-4 h-4" />
-                    Keyword Filter
-                  </Label>
-                  <div className="flex gap-2">
+                <div className="border-t pt-6">
+                  <Label className="text-sm font-medium mb-3 block">Keyword Filter</Label>
+                  <div className="space-y-2">
                     <Input
-                      id="keyword-filter"
                       placeholder="Filter events by keyword"
                       value={keywordFilter}
                       onChange={(e) => setKeywordFilter(e.target.value)}
                     />
-                    <Button onClick={handleFilterUpdate} size="sm">
-                      Apply
+                    <Button
+                      onClick={handleUpdateKeywordFilter}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      <Filter className="w-4 h-4 mr-2" />
+                      Apply Filter
                     </Button>
                   </div>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-gray-500 mt-2">
                     Only show calendar events containing this keyword in the title
                   </p>
                 </div>
-
-                {/* File Uploads */}
-                <div className="space-y-4 pt-4 border-t">
-                  <div>
-                    <Label className="text-sm font-medium mb-2 block">
-                      Example Pitch Decks
-                    </Label>
-                    <p className="text-xs text-slate-500 mb-2">
-                      (This is your company pitch deck or an example pitch deck to use as a template for building a new pitch deck.)
-                    </p>
-                    <Button variant="outline" className="w-full justify-start gap-2">
-                      <Upload className="w-4 h-4" />
-                      Upload Template
-                    </Button>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium mb-2 block">
-                      Company Information
-                    </Label>
-                    <p className="text-xs text-slate-500 mb-2">
-                      Your company information to use when building the Pre-sales Report and Pitch Deck
-                    </p>
-                    <Button variant="outline" className="w-full justify-start gap-2">
-                      <Upload className="w-4 h-4" />
-                      Upload Info
-                    </Button>
-                  </div>
-                </div>
               </CardContent>
             </Card>
+
+            {/* File Upload Section */}
+            <FileUploadSection
+              initialCompanyText={profile.company_info_text} 
+              profileId={profile.id}
+              onUploadSuccess={(fileType) => {
+                console.log(`✅ ${fileType} uploaded successfully`);
+                // Refresh profile data to show updated files
+                fetchProfile();
+              }}
+            />
+
+            {/* Generated Reports Section */}
+            <GeneratedReportsSection 
+              events={events}
+            />
           </div>
 
-          {/* Right Column - Calendar & Events */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Calendar View */}
+          {/* Calendar and Events */}
+          <div className="lg:col-span-2 space-y-8">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5" />
-                  Calendar
-                </CardTitle>
-                <CardDescription>
-                  {profile.google_access_token || profile.outlook_access_token
-                    ? 'Synced with your calendar'
-                    : 'Connect your calendar to see events'}
-                </CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Calendar</CardTitle>
+                  <CardDescription>Connect your calendar to see events</CardDescription>
+                </div>
+                <Button
+                  onClick={handleSyncCalendar}
+                  disabled={syncing}
+                  variant="outline"
+                  size="sm"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                  {syncing ? 'Syncing...' : 'Sync'}
+                </Button>
               </CardHeader>
               <CardContent>
                 {profile.google_access_token || profile.outlook_access_token ? (
                   <CalendarView events={events} />
                 ) : (
-                  <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-8 text-center">
-                    <Calendar className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-                    <p className="text-slate-600 dark:text-slate-400">
-                      Calendar view will appear here once connected
-                    </p>
+                  <div className="text-center py-12">
+                    <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">Calendar view will appear here once connected</p>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Calendar Events List */}
             <Card>
               <CardHeader>
                 <CardTitle>Calendar Events</CardTitle>
-                <CardDescription>
-                  {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} 
-                  {keywordFilter && ` matching "${keywordFilter}"`}
-                </CardDescription>
+                <CardDescription>{events.length} events</CardDescription>
               </CardHeader>
               <CardContent>
-                {filteredEvents.length === 0 ? (
-                  <div className="text-center py-8 text-slate-600 dark:text-slate-400">
-                    {profile.google_access_token || profile.outlook_access_token
-                      ? syncing 
-                        ? 'Syncing calendar events...'
-                        : 'No events found. Try syncing your calendar.'
-                      : 'No events found. Connect your calendar to see events.'}
-                  </div>
+                {events.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No events found. Connect your calendar to see events.</p>
                 ) : (
                   <div className="space-y-4">
-                    {filteredEvents.map((event) => (
-                      <Card key={event.id} className="border-l-4 border-l-blue-500">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-lg">{event.title}</CardTitle>
-                          <CardDescription>
-                            {new Date(event.start_time).toLocaleString()} - {new Date(event.end_time).toLocaleTimeString()}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          {event.description && (
-                            <p className="text-sm text-slate-600 dark:text-slate-400">
-                              {event.description}
+                    {events.map((event) => (
+                      <div key={event.id} className="border rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h3 className="font-semibold">{event.title}</h3>
+                            <p className="text-sm text-gray-600">
+                              {new Date(event.start_time).toLocaleString()}
                             </p>
-                          )}
-                          {event.attendees && event.attendees.length > 0 && (
-                            <p className="text-xs text-slate-500">
-                              Attendees: {event.attendees.join(', ')}
-                            </p>
-                          )}
-                          <div className="flex gap-2">
-                            <Button 
-                              onClick={() => handleGenerateReport(event)}
-                              variant="default"
-                              size="sm"
-                              className="gap-2"
-                            >
-                              <FileText className="w-4 h-4" />
-                              PDF Pre-sales Report
-                            </Button>
-                            <Button 
-                              onClick={() => handleGenerateSlides(event)}
-                              variant="outline"
-                              size="sm"
-                              className="gap-2"
-                            >
-                              <Presentation className="w-4 h-4" />
-                              Create Slides
-                            </Button>
                           </div>
-                        </CardContent>
-                      </Card>
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            {event.source}
+                          </span>
+                        </div>
+                        {event.description && (
+                          <p className="text-sm text-gray-600 mb-3">{event.description}</p>
+                        )}
+                        <div className="flex gap-2 flex-wrap">
+                          {event.presales_report_status && (
+                            <div className="flex items-center gap-2">
+                              {event.presales_report_status === 'pending' && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleGeneratePresalesReport(event)}
+                                  disabled={generatingReportId === event.id}
+                                >
+                                  {generatingReportId === event.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Generating...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FileText className="w-4 h-4 mr-2" />
+                                      Generate Pre-Sales Report
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                              {event.presales_report_status === 'processing' && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  disabled
+                                  className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700"
+                                >
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  Generating Report... {reportTimeRemaining[event.id] && `(${reportTimeRemaining[event.id]})`}
+                                </Button>
+                              )}
+{event.presales_report_status === 'completed' && (
+                                <div className="flex items-center gap-2">
+                                  {event.presales_report_url ? (
+                                    <a
+                                      href={event.presales_report_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 hover:bg-green-100"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                      Download PDF
+                                    </a>
+                                  ) : (
+                                    <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                      Report Ready
+                                    </div>
+                                  )}
+                                  {reportContent[event.id] && (
+                                    <button
+                                      onClick={() => {
+                                        const element = document.createElement('a');
+                                        const file = new Blob([reportContent[event.id]], {type: 'text/plain'});
+                                        element.href = URL.createObjectURL(file);
+                                        element.download = `report-${event.id}.txt`;
+                                        document.body.appendChild(element);
+                                        element.click();
+                                        document.body.removeChild(element);
+                                      }}
+                                      className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700 hover:bg-blue-100"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                      Download Text
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                              {event.presales_report_status === 'failed' && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleGeneratePresalesReport(event)}
+                                  disabled={generatingReportId === event.id}
+                                  className="bg-red-50 border border-red-200 text-red-700 hover:bg-red-100"
+                                >
+                                  {generatingReportId === event.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Retrying...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FileText className="w-4 h-4 mr-2" />
+                                      Try again
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                              {isReportStale(event) && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleGeneratePresalesReport(event)}
+                                  disabled={generatingReportId === event.id}
+                                >
+                                  {generatingReportId === event.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Retrying...
+                                    </>
+                                  ) : (
+                                    'Try again'
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                          {event.slides_status && (
+                            <div className="flex items-center gap-2">
+                              {event.slides_status === 'pending' && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleGenerateSlides(event)}
+                                  disabled={generatingSlidesId === event.id}
+                                >
+                                  {generatingSlidesId === event.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Generating...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Presentation className="w-4 h-4 mr-2" />
+                                      Generate Slides
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                              {event.slides_status === 'processing' && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  disabled
+                                  className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700"
+                                >
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  Generating Slides... {slidesTimeRemaining[event.id] && `(${slidesTimeRemaining[event.id]})`}
+                                </Button>
+                              )}
+                              {event.slides_status === 'completed' && event.slides_url && (
+                                <a
+                                  href={event.slides_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 hover:bg-green-100"
+                                >
+                                  <Download className="w-4 h-4" />
+                                  Download Slides
+                                </a>
+                              )}
+                              {event.slides_status === 'failed' && (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                                  <Presentation className="w-4 h-4" />
+                                  Slides Failed
+                                </div>
+                              )}
+                              {areSlidesStale(event) && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleGenerateSlides(event)}
+                                  disabled={generatingSlidesId === event.id}
+                                >
+                                  {generatingSlidesId === event.id ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Retrying...
+                                    </>
+                                  ) : (
+                                    'Try again'
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -563,39 +1006,77 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Google Auth Confirmation Dialog */}
+      {/* Google Connect Dialog */}
       <AlertDialog open={showGoogleDialog} onOpenChange={setShowGoogleDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Connect with Google</AlertDialogTitle>
+            <AlertDialogTitle>Connect Google Calendar</AlertDialogTitle>
             <AlertDialogDescription>
-              You will be redirected to Google to sign in and authorize AutoPrep to access your Google Calendar. 
-              This will allow us to automatically sync your calendar events and help you prepare for meetings.
+              You&apos;ll be redirected to Google to authorize calendar access.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleGoogleAuthConfirm}>
-              Continue to Google
+            <AlertDialogAction asChild>
+              <a href={`/api/auth/google?profile_id=${profile.id}`}>
+                Connect Google
+              </a>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Outlook Auth Confirmation Dialog */}
-      <AlertDialog open={showOutlookDialog} onOpenChange={setShowOutlookDialog}>
+      {/* Google Disconnect Dialog */}
+      <AlertDialog open={showGoogleDisconnectDialog} onOpenChange={setShowGoogleDisconnectDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Connect with Outlook</AlertDialogTitle>
+            <AlertDialogTitle>Disconnect Google Calendar</AlertDialogTitle>
             <AlertDialogDescription>
-              You will be redirected to Microsoft to sign in and authorize AutoPrep to access your Outlook Calendar. 
-              This will allow us to automatically sync your calendar events and help you prepare for meetings.
+              Are you sure you want to disconnect your Google Calendar? Your synced events will remain in the system.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleOutlookAuthConfirm}>
-              Continue to Outlook
+            <AlertDialogAction onClick={handleDisconnectGoogle} className="bg-red-600 hover:bg-red-700">
+              Disconnect
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Outlook Connect Dialog */}
+      <AlertDialog open={showOutlookDialog} onOpenChange={setShowOutlookDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Connect Outlook Calendar</AlertDialogTitle>
+            <AlertDialogDescription>
+              You&apos;ll be redirected to Microsoft to authorize calendar access.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <a href={`/api/auth/outlook?profile_id=${profile.id}`}>
+                Connect Outlook
+              </a>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Outlook Disconnect Dialog */}
+      <AlertDialog open={showOutlookDisconnectDialog} onOpenChange={setShowOutlookDisconnectDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect Outlook Calendar</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to disconnect your Outlook Calendar? Your synced events will remain in the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDisconnectOutlook} className="bg-red-600 hover:bg-red-700">
+              Disconnect
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

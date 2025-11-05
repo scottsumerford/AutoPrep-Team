@@ -849,42 +849,17 @@ export default function ProfilePage() {
                                   Generating Report... {reportTimeRemaining[event.id] && `(${reportTimeRemaining[event.id]})`}
                                 </Button>
                               )}
-{event.presales_report_status === 'completed' && (
-                                <div className="flex items-center gap-2">
-                                  {event.presales_report_url ? (
-                                    <a
-                                      href={event.presales_report_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 hover:bg-green-100"
-                                    >
-                                      <Download className="w-4 h-4" />
-                                      Download PDF
-                                    </a>
-                                  ) : (
-                                    <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                      Report Ready
-                                    </div>
-                                  )}
-                                  {reportContent[event.id] && (
-                                    <button
-                                      onClick={() => {
-                                        const element = document.createElement('a');
-                                        const file = new Blob([reportContent[event.id]], {type: 'text/plain'});
-                                        element.href = URL.createObjectURL(file);
-                                        element.download = `report-${event.id}.txt`;
-                                        document.body.appendChild(element);
-                                        element.click();
-                                        document.body.removeChild(element);
-                                      }}
-                                      className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700 hover:bg-blue-100"
-                                    >
-                                      <Download className="w-4 h-4" />
-                                      Download Text
-                                    </button>
-                                  )}
-                                </div>
+{event.presales_report_status === 'completed' && event.presales_report_url && (
+                                <a
+                                  href={event.presales_report_url}
+                                  download
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 px-3 py-2 bg-green-500 border border-green-600 rounded text-sm text-white hover:bg-green-600 transition-colors shadow-sm"
+                                >
+                                  <Download className="w-4 h-4" />
+                                  Download Report
+                                </a>
                               )}
                               {event.presales_report_status === 'failed' && (
                                 <Button 
@@ -962,9 +937,10 @@ export default function ProfilePage() {
                               {event.slides_status === 'completed' && event.slides_url && (
                                 <a
                                   href={event.slides_url}
+                                  download
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-700 hover:bg-green-100"
+                                  className="flex items-center gap-2 px-3 py-2 bg-green-500 border border-green-600 rounded text-sm text-white hover:bg-green-600 transition-colors shadow-sm"
                                 >
                                   <Download className="w-4 h-4" />
                                   Download Slides
