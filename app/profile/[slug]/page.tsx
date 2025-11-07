@@ -610,6 +610,8 @@ export default function ProfilePage() {
 
             {/* File Upload Section */}
             <FileUploadSection
+              hasCompanyInfoFile={!!profile.company_info_file}
+              hasSlidesFile={!!profile.slides_file}
               initialCompanyText={profile.company_info_text} 
               profileId={profile.id}
               onUploadSuccess={(fileType) => {

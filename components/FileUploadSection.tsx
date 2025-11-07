@@ -13,9 +13,17 @@ interface FileUploadSectionProps {
   profileId: number;
   onUploadSuccess?: (fileType: string) => void;
   initialCompanyText?: string;
+  hasCompanyInfoFile?: boolean;
+  hasSlidesFile?: boolean;
 }
 
-export function FileUploadSection({ profileId, onUploadSuccess, initialCompanyText }: FileUploadSectionProps) {
+export function FileUploadSection({ 
+  profileId, 
+  onUploadSuccess, 
+  initialCompanyText,
+  hasCompanyInfoFile = false,
+  hasSlidesFile = false
+}: FileUploadSectionProps) {
   const [companyInfoFile, setCompanyInfoFile] = useState<File | null>(null);
   const [companyInfoText, setCompanyInfoText] = useState(initialCompanyText || '');
   const [slidesFile, setSlidesFile] = useState<File | null>(null);
@@ -27,12 +35,24 @@ export function FileUploadSection({ profileId, onUploadSuccess, initialCompanyTe
   const [slidesSuccess, setSlidesSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [companyInfoTab, setCompanyInfoTab] = useState<'file' | 'text'>('file');
+  const [hasUploadedCompanyInfo, setHasUploadedCompanyInfo] = useState(hasCompanyInfoFile);
+  const [hasUploadedSlides, setHasUploadedSlides] = useState(hasSlidesFile);
+  const [hasSavedCompanyText, setHasSavedCompanyText] = useState(!!initialCompanyText);
 
   useEffect(() => {
     if (initialCompanyText) {
       setCompanyInfoText(initialCompanyText);
+      setHasSavedCompanyText(true);
     }
   }, [initialCompanyText]);
+
+  useEffect(() => {
+    setHasUploadedCompanyInfo(hasCompanyInfoFile);
+  }, [hasCompanyInfoFile]);
+
+  useEffect(() => {
+    setHasUploadedSlides(hasSlidesFile);
+  }, [hasSlidesFile]);
 
   const allowedExtensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.txt', '.csv'];
 
@@ -82,8 +102,10 @@ export function FileUploadSection({ profileId, onUploadSuccess, initialCompanyTe
       setSuccess(true);
       if (fileType === 'company_info') {
         setCompanyInfoFile(null);
+        setHasUploadedCompanyInfo(true);
       } else {
         setSlidesFile(null);
+        setHasUploadedSlides(true);
       }
 
       if (onUploadSuccess) {
@@ -129,6 +151,7 @@ export function FileUploadSection({ profileId, onUploadSuccess, initialCompanyTe
       }
 
       setCompanyTextSuccess(true);
+      setHasSavedCompanyText(true);
 
       if (onUploadSuccess) {
         onUploadSuccess('company_info_text');
@@ -144,6 +167,9 @@ export function FileUploadSection({ profileId, onUploadSuccess, initialCompanyTe
       setUploadingCompanyText(false);
     }
   };
+
+  // Check if company info is provided (either file uploaded or text saved)
+  const hasCompanyInfo = hasUploadedCompanyInfo || hasSavedCompanyText;
 
   return (
     <Card>
@@ -171,13 +197,15 @@ export function FileUploadSection({ profileId, onUploadSuccess, initialCompanyTe
             Company Information
           </Label>
           
-          {/* Red Alert Message for Company Information */}
-          <Alert variant="destructive" className="bg-red-50 border-red-200">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800">
-              *Upload your company information via file or enter in a summary in text before trying to generate a report.
-            </AlertDescription>
-          </Alert>
+          {/* Red Alert Message for Company Information - Only show if no company info provided */}
+          {!hasCompanyInfo && (
+            <Alert variant="destructive" className="bg-red-50 border-red-200">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800">
+                *Upload your company information via file or enter in a summary in text before trying to generate a report.
+              </AlertDescription>
+            </Alert>
+          )}
 
           <Tabs value={companyInfoTab} onValueChange={(v) => setCompanyInfoTab(v as 'file' | 'text')}>
             <TabsList className="grid w-full grid-cols-2">
@@ -270,13 +298,15 @@ export function FileUploadSection({ profileId, onUploadSuccess, initialCompanyTe
             Slide Templates
           </Label>
           
-          {/* Red Alert Message for Slide Templates */}
-          <Alert variant="destructive" className="bg-red-50 border-red-200">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800">
-              Upload an existing presentation to use as a template for your slides.
-            </AlertDescription>
-          </Alert>
+          {/* Red Alert Message for Slide Templates - Only show if no slides uploaded */}
+          {!hasUploadedSlides && (
+            <Alert variant="destructive" className="bg-red-50 border-red-200">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800">
+                Upload an existing presentation to use as a template for your slides.
+              </AlertDescription>
+            </Alert>
+          )}
 
           <p className="text-xs text-gray-500">
             Upload PowerPoint or PDF files to use as slide templates
