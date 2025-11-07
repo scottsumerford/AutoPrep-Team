@@ -58,12 +58,6 @@ interface CalendarEvent {
   created_at?: string;
 }
 
-interface TokenStats {
-  agent_run: number;
-  presales_report: number;
-  slides_generation: number;
-  total: number;
-}
 
 // Helper function to extract the OTHER attendee's email (not the user's)
 // Compares user's email against event attendees and returns the OTHER person's email
@@ -149,9 +143,9 @@ function isReportStale(event: CalendarEvent): boolean {
   
   const startedTime = new Date(event.presales_report_started_at).getTime();
   const now = new Date().getTime();
-  const twentyMinutesMs = 20 * 60 * 1000;
+  const fifteenMinutesMs = 15 * 60 * 1000;
   
-  return (now - startedTime) > twentyMinutesMs;
+  return (now - startedTime) > fifteenMinutesMs;
 }
 
 // Helper function to check if slides are stale (processing > 20 minutes)
@@ -172,24 +166,11 @@ function areSlidesStale(event: CalendarEvent): boolean {
   
   const startedTime = new Date(event.slides_started_at).getTime();
   const now = new Date().getTime();
-  const twentyMinutesMs = 20 * 60 * 1000;
+  const fifteenMinutesMs = 15 * 60 * 1000;
   
-  return (now - startedTime) > twentyMinutesMs;
+  return (now - startedTime) > fifteenMinutesMs;
 }
 
-// Helper function to format remaining time
-function formatTimeRemaining(startedAt: string): string {
-  const startedTime = new Date(startedAt).getTime();
-  const now = new Date().getTime();
-  const twentyMinutesMs = 20 * 60 * 1000;
-  const elapsedMs = now - startedTime;
-  const remainingMs = Math.max(0, twentyMinutesMs - elapsedMs);
-  
-  const minutes = Math.floor(remainingMs / 60000);
-  const seconds = Math.floor((remainingMs % 60000) / 1000);
-  
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
 
 export default function ProfilePage() {
   const params = useParams();
@@ -199,7 +180,6 @@ export default function ProfilePage() {
   
   const [profile, setProfile] = useState<Profile | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [keywordFilter, setKeywordFilter] = useState('');
@@ -211,10 +191,6 @@ export default function ProfilePage() {
   const [generatingSlidesId, setGeneratingSlidesId] = useState<number | null>(null);
   const [reportPollingId, setReportPollingId] = useState<number | null>(null);
   const [slidesPollingId, setSlidesPollingId] = useState<number | null>(null);
-  const [reportTimeRemaining, setReportTimeRemaining] = useState<{ [key: number]: string }>({});
-  const [slidesTimeRemaining, setSlidesTimeRemaining] = useState<{ [key: number]: string }>({});
-  const [reportContent, setReportContent] = useState<{ [key: number]: string }>({});
-  const [slidesContent, setSlidesContent] = useState<{ [key: number]: string }>({});
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -244,16 +220,6 @@ export default function ProfilePage() {
     }
   }, [profile]);
 
-  const fetchTokenStats = useCallback(async () => {
-    if (!profile) return;
-    try {
-      const response = await fetch(`/api/tokens/${profile.id}`);
-      const data = await response.json();
-      setTokenStats(data);
-    } catch (error) {
-      console.error('Error fetching token stats:', error);
-    }
-  }, [profile]);
 
   useEffect(() => {
     fetchProfile();
@@ -270,49 +236,10 @@ export default function ProfilePage() {
   useEffect(() => {
     if (profile) {
       fetchEvents();
-      fetchTokenStats();
     }
-  }, [profile, fetchEvents, fetchTokenStats]);
+  }, [profile, fetchEvents]);
 
-  // Timer for report time remaining
-  useEffect(() => {
-    if (reportPollingId === null) return;
 
-    const interval = setInterval(() => {
-      setEvents(prevEvents => {
-        const event = prevEvents.find(e => e.id === reportPollingId);
-        if (event && event.presales_report_started_at) {
-          setReportTimeRemaining(prev => ({
-            ...prev,
-            [reportPollingId]: formatTimeRemaining(event.presales_report_started_at || "")
-          }));
-        }
-        return prevEvents;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [reportPollingId]);
-
-  // Timer for slides time remaining
-  useEffect(() => {
-    if (slidesPollingId === null) return;
-
-    const interval = setInterval(() => {
-      setEvents(prevEvents => {
-        const event = prevEvents.find(e => e.id === slidesPollingId);
-        if (event && event.slides_started_at) {
-          setSlidesTimeRemaining(prev => ({
-            ...prev,
-            [slidesPollingId]: formatTimeRemaining(event.slides_started_at || "")
-          }));
-        }
-        return prevEvents;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [slidesPollingId]);
 
   // Polling for report status
   useEffect(() => {
@@ -338,10 +265,6 @@ export default function ProfilePage() {
           );
           // Store report content if available
           if (data.reportContent) {
-            setReportContent(prev => ({
-              ...prev,
-              [reportPollingId]: data.reportContent
-            }));
           }
           setReportPollingId(null);
         }
@@ -439,10 +362,6 @@ export default function ProfilePage() {
         ));
         // Start polling for the report
         setReportPollingId(event.id);
-        setReportTimeRemaining(prev => ({
-          ...prev,
-          [event.id]: '20:00'
-        }));
       } else {
         console.error('❌ Failed to generate pre-sales report');
       }
@@ -483,10 +402,6 @@ export default function ProfilePage() {
         ));
         // Start polling for the slides
         setSlidesPollingId(event.id);
-        setSlidesTimeRemaining(prev => ({
-          ...prev,
-          [event.id]: '20:00'
-        }));
       } else {
         console.error('❌ Failed to generate slides');
       }
@@ -595,41 +510,6 @@ export default function ProfilePage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Tokens</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{tokenStats?.total || 0}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Agent Runs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{tokenStats?.agent_run || 0}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Pre-sales Reports</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{tokenStats?.presales_report || 0}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Slides Generated</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{tokenStats?.slides_generation || 0}</div>
-            </CardContent>
-          </Card>
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Profile Overview */}
           <div className="lg:col-span-1">
@@ -832,7 +712,7 @@ export default function ProfilePage() {
                                   className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700"
                                 >
                                   <Loader2 className="w-3 h-3 animate-spin" />
-                                  Generating Report... {reportTimeRemaining[event.id] && `(${reportTimeRemaining[event.id]})`}
+                                  Your report will be ready soon
                                 </Button>
                               )}
 {event.presales_report_status === 'completed' && (
@@ -917,7 +797,7 @@ export default function ProfilePage() {
                                   className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700"
                                 >
                                   <Loader2 className="w-3 h-3 animate-spin" />
-                                  Generating Slides... {slidesTimeRemaining[event.id] && `(${slidesTimeRemaining[event.id]})`}
+                                  Your slides will be ready soon
                                 </Button>
                               )}
                               {event.slides_status === 'completed' && event.slides_url && (

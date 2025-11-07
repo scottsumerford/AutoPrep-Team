@@ -170,6 +170,15 @@ export function FileUploadSection({ profileId, onUploadSuccess, initialCompanyTe
             <FileText className="w-4 h-4" />
             Company Information
           </Label>
+          
+          {/* Red Alert Message for Company Information */}
+          <Alert variant="destructive" className="bg-red-50 border-red-200">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              *Upload your company information via file or enter in a summary in text before trying to generate a report.
+            </AlertDescription>
+          </Alert>
+
           <Tabs value={companyInfoTab} onValueChange={(v) => setCompanyInfoTab(v as 'file' | 'text')}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="file">Upload File</TabsTrigger>
@@ -260,6 +269,15 @@ export function FileUploadSection({ profileId, onUploadSuccess, initialCompanyTe
             <Presentation className="w-4 h-4" />
             Slide Templates
           </Label>
+          
+          {/* Red Alert Message for Slide Templates */}
+          <Alert variant="destructive" className="bg-red-50 border-red-200">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              Upload an existing presentation to use as a template for your slides.
+            </AlertDescription>
+          </Alert>
+
           <p className="text-xs text-gray-500">
             Upload PowerPoint or PDF files to use as slide templates
           </p>
