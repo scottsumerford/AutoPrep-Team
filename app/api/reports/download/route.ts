@@ -31,7 +31,42 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // If no presales_report_url but we have content, generate PDF on-the-fly
     if (!event.presales_report_url) {
+      if (event.presales_report_content) {
+        console.log('📄 No PDF URL found, generating PDF from content on-the-fly for event:', eventId);
+        try {
+          const { generatePdfFromContent, bufferToDataUrl } = await import('@/lib/pdf-generator');
+          const pdfBuffer = await generatePdfFromContent(
+            event.presales_report_content,
+            `Pre-Sales Report - ${event.title}`
+          );
+          
+          // Generate filename
+          const eventDate = new Date(event.start_time).toISOString().split('T')[0];
+          const sanitizedTitle = event.title.replace(/[^a-z0-9]/gi, '_').substring(0, 50);
+          const filename = `PreSales_Report_${sanitizedTitle}_${eventDate}.pdf`;
+
+          // Convert Buffer to Uint8Array for NextResponse
+          const uint8Array = new Uint8Array(pdfBuffer);
+
+          return new NextResponse(uint8Array, {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/pdf',
+              'Content-Disposition': `attachment; filename="${filename}"`,
+              'Content-Length': pdfBuffer.length.toString(),
+            },
+          });
+        } catch (error) {
+          console.error('Error generating PDF from content:', error);
+          return NextResponse.json(
+            { error: 'Failed to generate PDF from content' },
+            { status: 500 }
+          );
+        }
+      }
+      
       return NextResponse.json(
         { error: 'No report available for this event' },
         { status: 404 }
