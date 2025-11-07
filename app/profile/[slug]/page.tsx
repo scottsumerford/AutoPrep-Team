@@ -323,15 +323,14 @@ export default function ProfilePage() {
         const response = await fetch(`/api/lindy/presales-report-status?event_id=${reportPollingId}`);
         const data = await response.json();
 
-        if (data.found && data.reportUrl) {
-          console.log('✅ Report found with URL:', data.reportUrl);
+        if (data.found && data.status === 'completed') {
+          console.log('✅ Report completed');
           setEvents(prevEvents =>
             prevEvents.map(e =>
               e.id === reportPollingId
                 ? { 
                     ...e, 
                     presales_report_status: 'completed', 
-                    presales_report_url: data.reportUrl,
                     presales_report_content: data.reportContent || e.presales_report_content
                   }
                 : e
@@ -344,19 +343,6 @@ export default function ProfilePage() {
               [reportPollingId]: data.reportContent
             }));
           }
-          setReportPollingId(null);
-        } else if (data.found && !data.reportUrl) {
-          // Report found but URL not ready yet, keep polling
-          console.log('⏳ Report found but PDF URL not ready yet, continuing to poll...');
-        } else if (events.find(e => e.id === reportPollingId) && isReportStale(events.find(e => e.id === reportPollingId)!)) {
-          console.log('⏱️ Report generation timeout - showing try again');
-          setEvents(prevEvents =>
-            prevEvents.map(e =>
-              e.id === reportPollingId
-                ? { ...e, presales_report_status: 'processing' }
-                : e
-            )
-          );
           setReportPollingId(null);
         }
       } catch (error) {

@@ -21,7 +21,7 @@ interface GeneratedReportsSectionProps {
 export function GeneratedReportsSection({ events }: GeneratedReportsSectionProps) {
   // Filter events that have completed reports
   const completedReports = events.filter(
-    event => event.presales_report_status === 'completed' && event.presales_report_url
+    event => event.presales_report_status === 'completed'
   );
 
   if (completedReports.length === 0) {
@@ -60,16 +60,17 @@ export function GeneratedReportsSection({ events }: GeneratedReportsSectionProps
                 </p>
               </div>
               <div className="flex gap-2 ml-2">
-                {event.presales_report_url && (
-                  <a
-                    href={event.presales_report_url}
-                    download={`report-${event.id}.pdf`}
-                    className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 border border-blue-200 rounded text-blue-700 hover:bg-blue-100 transition-colors"
-                  >
-                    <Download className="w-3 h-3" />
-                    PDF
-                  </a>
-                )}
+                {/* PDF Download - Always use the download API */}
+                <button
+                  onClick={() => {
+                    window.location.href = `/api/reports/download?eventId=${event.id}`;
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 border border-blue-200 rounded text-blue-700 hover:bg-blue-100 transition-colors"
+                >
+                  <Download className="w-3 h-3" />
+                  PDF
+                </button>
+                {/* TXT Download - Only if content exists */}
                 {event.presales_report_content && (
                   <button
                     onClick={() => {

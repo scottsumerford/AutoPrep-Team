@@ -21,8 +21,11 @@ interface AirTableResponse {
  * 2. Then queries AirTable for "Report Content" field matching calendarEventId
  * 3. If report content is found, generates a PDF and stores it
  * Returns:
- * - PDF URL (for download)
+ * - Status of the report (completed/processing)
  * - Report Content (text document version)
+ * 
+ * NOTE: PDF generation happens in the webhook handler, not here.
+ * This endpoint only checks if the report is ready.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -49,22 +52,21 @@ export async function GET(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // FIRST: Check if the report is already in the database
+    // Check if the report is already completed in the database
     console.log('📊 [PRESALES_STATUS] Checking database for report...');
-    if (event.presales_report_status === 'completed' && event.presales_report_url) {
-      console.log('✅ [PRESALES_STATUS] Report found in database:', event.presales_report_url);
+    if (event.presales_report_status === 'completed') {
+      console.log('✅ [PRESALES_STATUS] Report completed in database');
       return NextResponse.json({
         success: true,
         found: true,
         status: 'completed',
-        reportUrl: event.presales_report_url,
         reportContent: event.presales_report_content || null,
         source: 'database'
       });
     }
 
-    // SECOND: If not in database, check AirTable
-    console.log('🌐 [PRESALES_STATUS] Report not in database, checking AirTable...');
+    // If not completed, check AirTable to see if it's ready
+    console.log('🌐 [PRESALES_STATUS] Report not completed, checking AirTable...');
 
     const airtableApiKey = process.env.AIRTABLE_API_KEY;
     const airtableBaseId = process.env.AIRTABLE_BASE_ID;
@@ -114,8 +116,7 @@ export async function GET(request: NextRequest) {
       
       console.log(`  📋 Checking record ${record.id}:`, {
         calendarEventId,
-        hasReportContent: !!fields['Report Content'],
-        hasReportUrl: !!fields['Report URL']
+        hasReportContent: !!fields['Report Content']
       });
 
       // Match by Calendar Event ID (as string comparison)
@@ -125,21 +126,18 @@ export async function GET(request: NextRequest) {
     if (matchingRecord) {
       const fields = matchingRecord.fields || {};
       const reportContent = fields['Report Content'] || fields['report_content'];
-      const reportUrl = fields['Report URL'] || fields['PDF URL'] || fields['report_url'];
       const status = fields['Status'] || fields['status'] || 'completed';
 
       console.log('✅ [PRESALES_STATUS] Report found in AirTable:', {
         recordId: matchingRecord.id,
         status,
-        hasReportUrl: !!reportUrl,
         hasReportContent: !!reportContent,
         reportContentLength: typeof reportContent === 'string' ? reportContent.length : 0
       });
 
-      let pdfUrl: string | undefined;
       const storedContent: string | undefined = typeof reportContent === 'string' ? reportContent : undefined;
 
-      // If we have report content, generate a PDF
+      // If we have report content, generate PDF and update database
       if (reportContent && typeof reportContent === 'string') {
         console.log('📄 [PRESALES_STATUS] Generating PDF from report content...');
         console.log('📝 [PRESALES_STATUS] Report content length:', reportContent.length, 'characters');
@@ -149,44 +147,43 @@ export async function GET(request: NextRequest) {
             reportContent,
             `Pre-Sales Report - ${event.title}`
           );
-          pdfUrl = bufferToDataUrl(pdfBuffer, 'application/pdf');
+          const pdfUrl = bufferToDataUrl(pdfBuffer, 'application/pdf');
           console.log('✅ [PRESALES_STATUS] PDF generated successfully, size:', pdfBuffer.length, 'bytes');
+          
+          // Update the database with the PDF and content
+          console.log('💾 [PRESALES_STATUS] Updating database with report from AirTable');
+          const updatedEvent = await updateEventPresalesStatus(
+            parseInt(eventId), 
+            'completed', 
+            pdfUrl,
+            storedContent
+          );
+          console.log('✅ [PRESALES_STATUS] Database updated with report');
+          
+          if (updatedEvent) {
+            console.log('📊 [PRESALES_STATUS] Updated event:', {
+              id: updatedEvent.id,
+              status: updatedEvent.presales_report_status,
+              hasPdfUrl: !!updatedEvent.presales_report_url,
+              hasContent: !!updatedEvent.presales_report_content
+            });
+          }
         } catch (pdfError) {
           console.error('❌ [PRESALES_STATUS] Error generating PDF:', pdfError);
-          // Continue without PDF, we still have the content
-        }
-      } else if (reportUrl && typeof reportUrl === 'string') {
-        // If there's already a report URL in AirTable, use it
-        pdfUrl = reportUrl;
-        console.log('✅ [PRESALES_STATUS] Using existing Report URL from AirTable:', pdfUrl);
-      }
-
-      // Update the database with the report URL and content
-      if ((pdfUrl && typeof pdfUrl === 'string') || (storedContent && typeof storedContent === 'string')) {
-        console.log('💾 [PRESALES_STATUS] Updating database with report from AirTable');
-        const updatedEvent = await updateEventPresalesStatus(
-          parseInt(eventId), 
-          'completed', 
-          pdfUrl || undefined,
-          storedContent || undefined
-        );
-        console.log('✅ [PRESALES_STATUS] Database updated with report');
-        
-        if (updatedEvent) {
-          console.log('📊 [PRESALES_STATUS] Updated event:', {
-            id: updatedEvent.id,
-            status: updatedEvent.presales_report_status,
-            hasPdfUrl: !!updatedEvent.presales_report_url,
-            hasContent: !!updatedEvent.presales_report_content
-          });
+          // Still update with content even if PDF generation fails
+          await updateEventPresalesStatus(
+            parseInt(eventId), 
+            'completed', 
+            undefined,
+            storedContent
+          );
         }
       }
 
       return NextResponse.json({
         success: true,
         found: true,
-        status,
-        reportUrl: pdfUrl,
+        status: 'completed',
         reportContent: storedContent || null,
         recordId: matchingRecord.id,
         source: 'airtable'
