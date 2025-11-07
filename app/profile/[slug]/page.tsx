@@ -850,16 +850,16 @@ export default function ProfilePage() {
                                 </Button>
                               )}
 {event.presales_report_status === 'completed' && event.presales_report_url && (
-                                <a
-                                  href={event.presales_report_url}
-                                  download
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <Button 
+                                  size="sm"
+                                  onClick={() => {
+                                    window.location.href = `/api/reports/download?eventId=${event.id}`;
+                                  }}
                                   className="flex items-center gap-2 px-3 py-2 bg-green-500 border border-green-600 rounded text-sm text-white hover:bg-green-600 transition-colors shadow-sm"
                                 >
                                   <Download className="w-4 h-4" />
                                   Download Report
-                                </a>
+                                </Button>
                               )}
                               {event.presales_report_status === 'failed' && (
                                 <Button 
