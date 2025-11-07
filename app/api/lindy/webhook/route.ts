@@ -82,8 +82,8 @@ export async function POST(request: NextRequest) {
         let finalPdfUrl = pdf_url;
         const finalReportContent = report_content;
 
-        // If we have report content but no PDF URL, generate a PDF
-        if (report_content && typeof report_content === 'string' && !pdf_url) {
+        // If we have report content, ALWAYS generate a PDF from it (prioritize content over URL)
+        if (report_content && typeof report_content === 'string') {
           console.log('📄 Generating PDF from report content received in webhook...');
           console.log('📝 Report content length:', report_content.length, 'characters');
           

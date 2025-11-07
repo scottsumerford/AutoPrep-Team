@@ -1,292 +1,277 @@
-# AutoPrep Team Dashboard - Feature Deployment Summary
+# PDF Download Feature - Deployment Summary
 
-**Date:** October 22, 2025  
-**Status:** ✅ COMPLETE AND READY FOR PRODUCTION  
-**Developer:** AutoPrep App Developer  
-**Client:** Scott Sumerford
+## ✅ Implementation Complete
 
----
+### What Was Done
 
-## Executive Summary
+1. **Created New Download API Endpoint**
+   - File: `app/api/reports/download/route.ts`
+   - Endpoint: `GET /api/reports/download?eventId={eventId}`
+   - Features:
+     - Retrieves PDF from database (stored as base64 data URL)
+     - Converts to binary PDF for download
+     - Generates descriptive filename: `PreSales_Report_{EventTitle}_{Date}.pdf`
+     - Supports both data URLs and external URLs
 
-Two critical features have been successfully implemented, tested, and deployed to the AutoPrep Team Dashboard:
+2. **Updated Profile Page Download Button**
+   - File: `app/profile/[slug]/page.tsx`
+   - Changed from `<a>` tag to `<Button>` component
+   - Now uses API endpoint for better download handling
+   - Provides consistent user experience across browsers
 
-1. **15-Minute Timeout Retry Logic** - Automatically detects and marks stale presales reports/slides as failed, showing a "Try again" button for users to retry
-2. **Calendar Sync Deletion** - Provides true bidirectional synchronization by removing events deleted from Google Calendar or Outlook
+3. **Added Comprehensive Documentation**
+   - File: `PDF_DOWNLOAD_IMPLEMENTATION.md`
+   - Includes:
+     - Complete implementation details
+     - Webhook flow diagram
+     - Testing instructions
+     - Troubleshooting guide
+     - Deployment steps
 
-Both features are production-ready and have been committed to the main branch.
+### How It Works
 
----
-
-## Feature 1: 15-Minute Timeout Retry Logic
-
-### Problem
-- Presales reports could get stuck in "processing" status indefinitely
-- Users had no way to retry failed or timed-out operations
-- No automatic cleanup of stale processing runs
-
-### Solution
-- Automatic detection of stale runs (>15 minutes in processing status without URL)
-- Marks stale runs as failed automatically
-- Shows "Try again" button for users to retry
-- Cleanup happens on every API request
-
-### User Experience Flow
-1. User clicks "PDF Pre-sales Report" → "Generating Report..." (spinner)
-2. If completes within 15 minutes → "Download PDF Report" (green button)
-3. If times out (>15 minutes) → "Try again" (red destructive button)
-4. User can click "Try again" to retry the operation
-
-### Technical Implementation
-- **Database Functions:** `markStalePresalesRuns()`, `markStaleSlidesRuns()`
-- **API Routes:** Updated presales-report and slides routes with cleanup calls
-- **Frontend:** Added `isReportStale()` and `areSlidesStale()` helper functions
-- **UI Updates:** Button logic updated to show "Try again" for stale operations
-
-### Files Modified
-- `lib/db/index.ts` - Added 2 database functions
-- `app/api/lindy/presales-report/route.ts` - Added cleanup call
-- `app/api/lindy/slides/route.ts` - Added cleanup call
-- `app/profile/[id]/page.tsx` - Added stale detection UI logic
-
----
-
-## Feature 2: Calendar Sync Deletion (Bidirectional Sync)
-
-### Problem
-- Calendar sync only added/updated events, never deleted them
-- Deleted events remained in AutoPrep database indefinitely
-- No true bidirectional synchronization with remote calendars
-
-### Solution
-- Compares local events with remote calendar events
-- Deletes events that no longer exist in remote calendar
-- Handles Google Calendar and Outlook independently
-- Returns count of deleted events in sync response
-
-### User Experience Flow
-1. User clicks "Sync Calendar Now"
-2. System fetches all events from Google Calendar and/or Outlook
-3. System compares local vs remote events
-4. Deleted events are removed from AutoPrep
-5. New/updated events are synced
-6. User sees: "Successfully synced X events and deleted Y removed events"
-
-### Technical Implementation
-- **Database Function:** `deleteRemovedCalendarEvents(profileId, source, remoteEventIds)`
-- **API Route:** Updated calendar sync route with deletion logic
-- **Response:** Updated to include `deleted_events` count
-
-### Files Modified
-- `lib/db/index.ts` - Added 1 database function
-- `app/api/calendar/sync/route.ts` - Added deletion logic and updated response
-
----
-
-## Implementation Statistics
-
-| Metric | Value |
-|--------|-------|
-| Files Modified | 5 |
-| Lines Added | 703 |
-| Database Functions Added | 3 |
-| API Routes Updated | 2 |
-| Frontend Functions Added | 2 |
-| Database Migrations Required | 0 |
-| New Environment Variables | 0 |
-| Breaking Changes | 0 |
-
----
-
-## Git Commits
-
-### Commit 1: 82da5d9
-**Message:** feat: implement 15-minute timeout retry logic and calendar sync deletion  
-**Changes:** 5 files, 217 insertions  
-**URL:** https://github.com/scottsumerford/AutoPrep-Team/commit/82da5d9
-
-### Commit 2: e4c451e
-**Message:** docs: add comprehensive feature implementation documentation  
-**Changes:** 1 file, 220 insertions  
-**URL:** https://github.com/scottsumerford/AutoPrep-Team/commit/e4c451e
-
-### Commit 3: a9003cd
-**Message:** docs: add detailed code changes summary with examples  
-**Changes:** 1 file, 486 insertions  
-**URL:** https://github.com/scottsumerford/AutoPrep-Team/commit/a9003cd
-
----
-
-## Documentation
-
-### FEATURE_IMPLEMENTATION.md
-Comprehensive feature documentation including:
-- Problem statements and solutions
-- Implementation details for both features
-- User experience flows
-- Testing recommendations
-- Future enhancement ideas
-
-### CODE_CHANGES_SUMMARY.md
-Detailed code changes including:
-- Before/after code comparisons
-- Testing procedures
-- Deployment checklist
-- Troubleshooting guide
-
----
-
-## Quality Assurance
-
-### Code Quality ✅
-- TypeScript type safety maintained
-- Error handling implemented
-- Logging added for debugging
-- Backward compatible
-- No breaking changes
-
-### Testing ✅
-- Local testing completed
-- Application loads successfully
-- UI renders correctly
-- No console errors
-- Profile page tested (North Texas Shutters)
-
-### Documentation ✅
-- Comprehensive feature documentation
-- Detailed code changes summary
-- Testing procedures documented
-- Deployment checklist provided
-
----
-
-## Deployment Instructions
-
-### Prerequisites
-- All code committed to main branch ✅
-- All tests passed ✅
-- Documentation complete ✅
-
-### Deployment Steps
-1. Changes are already committed to main branch
-2. Vercel will automatically deploy on push to main
-3. No database migrations needed
-4. No environment variable changes needed
-5. Deployment should complete within 2-3 minutes
-
-### Verification Steps
-1. Visit https://team.autoprep.ai/profile/3 (North Texas Shutters)
-2. Verify profile page loads correctly
-3. Check that "Try again" button appears for stale reports
-4. Test calendar sync deletion with a test event
-
-### Rollback Plan
-If issues occur, revert to previous commit:
-```bash
-git revert 82da5d9
+```
+User Flow:
+1. User clicks "Generate Pre-Sales Report" button
+2. System triggers Lindy agent via webhook
+3. Lindy agent generates report content (text)
+4. Agent sends webhook callback with report_content
+5. Webhook handler generates PDF from text using pdfkit
+6. PDF stored as base64 data URL in database
+7. User clicks "Download Report" button
+8. Browser navigates to /api/reports/download?eventId={id}
+9. API converts data URL to binary PDF
+10. Browser downloads file with descriptive filename
 ```
 
+### Files Modified
+
+- ✅ `app/api/reports/download/route.ts` (NEW)
+- ✅ `app/profile/[slug]/page.tsx` (UPDATED)
+- ✅ `PDF_DOWNLOAD_IMPLEMENTATION.md` (NEW)
+- ✅ Build tested and passed
+
+### Git Commit
+
+```
+Commit: 7ad9e68
+Message: feat: add PDF download API endpoint for pre-sales reports
+Branch: main
+Status: Pushed to GitHub
+```
+
+## 🚀 Next Steps
+
+### 1. Automatic Deployment to Testing Environment
+
+Vercel will automatically deploy the changes to the testing environment:
+
+**Testing URL:** https://autoprep-team-subdomain-deployment-testing.vercel.app/
+
+**Expected Timeline:**
+- Deployment starts: Immediately after push
+- Build time: ~2-3 minutes
+- Total time: ~3-5 minutes
+
+**Monitor Deployment:**
+- Vercel Dashboard: https://vercel.com/scott-s-projects-53d26130/autoprep-team-subdomain-deployment-testing
+- Check deployment status and logs
+
+### 2. Testing Checklist
+
+Once deployed, test the following:
+
+- [ ] Navigate to a profile page (e.g., `/profile/scott-test`)
+- [ ] Click "Generate Pre-Sales Report" button
+- [ ] Wait for report generation to complete (~2-5 minutes)
+- [ ] Verify "Download Report" button appears (green button)
+- [ ] Click "Download Report" button
+- [ ] Verify PDF downloads with correct filename format
+- [ ] Open PDF and verify content is properly formatted
+- [ ] Test with multiple events to ensure consistency
+
+### 3. Verify Environment Variables
+
+Ensure the testing environment has these variables set in Vercel:
+
+```bash
+LINDY_PRESALES_WEBHOOK_URL=https://public.lindy.ai/api/v1/webhooks/lindy/b149f3a8-2679-4d0b-b4ba-7dfb5f399eaa
+LINDY_PRESALES_WEBHOOK_SECRET=2d32c0eab49ac81fad1578ab738e6a9ab2d811691c4afb8947928a90e6504f07
+LINDY_CALLBACK_URL=https://autoprep-team-subdomain-deployment-testing.vercel.app/api/lindy/webhook
+NEXT_PUBLIC_APP_URL=https://autoprep-team-subdomain-deployment-testing.vercel.app
+```
+
+**Important:** The `LINDY_CALLBACK_URL` must point to the testing environment so the webhook callbacks go to the right place.
+
+### 4. Production Deployment
+
+After successful testing:
+
+**Option A: Automatic (Recommended)**
+- Vercel is configured to auto-deploy from main branch
+- Changes will automatically deploy to production
+- Monitor: https://vercel.com/scott-s-projects-53d26130/autoprep-team-subdomain-deployment
+
+**Option B: Manual**
+```bash
+# Create a release tag
+git tag v1.4.0
+git push origin v1.4.0
+
+# Or deploy via Vercel CLI
+vercel --prod
+```
+
+**Production URL:** https://team.autoprep.ai/
+
+**Production Environment Variables:**
+```bash
+LINDY_CALLBACK_URL=https://team.autoprep.ai/api/lindy/webhook
+NEXT_PUBLIC_APP_URL=https://team.autoprep.ai
+```
+
+## 📊 Technical Details
+
+### PDF Generation Process
+
+1. **Webhook receives text content**
+   ```typescript
+   {
+     report_content: "Full text of the report..."
+   }
+   ```
+
+2. **Server generates PDF using pdfkit**
+   ```typescript
+   const pdfBuffer = await generatePdfFromContent(
+     reportContent,
+     eventTitle
+   );
+   ```
+
+3. **Convert to base64 data URL**
+   ```typescript
+   const dataUrl = bufferToDataUrl(pdfBuffer);
+   // Stored in database
+   ```
+
+4. **Download converts back to binary**
+   ```typescript
+   const buffer = dataUrlToBuffer(dataUrl);
+   const uint8Array = new Uint8Array(buffer);
+   return new NextResponse(uint8Array, { ... });
+   ```
+
+### Database Storage
+
+- **Column:** `calendar_events.presales_report_url`
+- **Format:** `data:application/pdf;base64,{base64_encoded_pdf}`
+- **Size:** Typically 50-500 KB per report
+- **Backup:** Original text stored in `presales_report_content`
+
+### API Endpoint Details
+
+**Request:**
+```
+GET /api/reports/download?eventId=123
+```
+
+**Response Headers:**
+```
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="PreSales_Report_Meeting_with_Client_2025-11-06.pdf"
+Content-Length: 123456
+```
+
+**Response Body:**
+Binary PDF data (Uint8Array)
+
+## 🔍 Monitoring & Debugging
+
+### Check Deployment Status
+
+```bash
+# View recent deployments
+vercel ls autoprep-team-subdomain-deployment-testing
+
+# View deployment logs
+vercel logs autoprep-team-subdomain-deployment-testing
+```
+
+### Debug Issues
+
+1. **PDF not generating:**
+   - Check webhook logs: `/api/lindy/webhook`
+   - Verify `report_content` is received
+   - Check pdfkit installation
+
+2. **Download not working:**
+   - Check browser console for errors
+   - Verify `/api/reports/download` endpoint is accessible
+   - Check `presales_report_url` is not null
+
+3. **Filename issues:**
+   - Check `Content-Disposition` header
+   - Verify filename sanitization
+   - Test in different browsers
+
+### Logs to Monitor
+
+- Webhook callbacks: Look for "📥 Webhook received"
+- PDF generation: Look for "📄 Generating PDF from content"
+- Download requests: Look for "Downloading report for event"
+
+## 📝 Additional Notes
+
+### Current System Capabilities
+
+The system already had most of the PDF infrastructure in place:
+- ✅ Webhook handler receives `report_content`
+- ✅ PDF generation using `pdfkit`
+- ✅ Base64 data URL storage
+- ✅ Database schema supports PDFs
+
+### What This Update Adds
+
+- ✅ Dedicated download API endpoint
+- ✅ Better filename generation
+- ✅ Improved download UX
+- ✅ Cleaner code separation
+- ✅ Comprehensive documentation
+
+### Future Enhancements
+
+Consider these improvements for future versions:
+- Store PDFs in cloud storage (S3, Azure Blob) instead of database
+- Add PDF preview before download
+- Support multiple report formats (DOCX, HTML)
+- Add email delivery option
+- Implement PDF compression
+- Add watermarking
+
+## 🎯 Success Criteria
+
+The implementation is successful when:
+- ✅ Build passes without errors
+- ✅ Code pushed to GitHub
+- ✅ Vercel deploys to testing environment
+- ✅ Download button appears after report generation
+- ✅ PDF downloads with correct filename
+- ✅ PDF content is properly formatted
+- ✅ Works consistently across multiple events
+
+## 📞 Support
+
+If you encounter any issues:
+- Check `PDF_DOWNLOAD_IMPLEMENTATION.md` for detailed troubleshooting
+- Review Vercel deployment logs
+- Check browser console for client-side errors
+- Verify environment variables are set correctly
+
 ---
 
-## Database Schema
-
-### Existing Columns Used
-- `presales_report_status` - Status of presales report generation
-- `presales_report_url` - URL to generated presales report
-- `slides_status` - Status of slides generation
-- `slides_url` - URL to generated slides
-- `created_at` - Event creation timestamp
-- `event_id` - Remote calendar event ID
-- `source` - Calendar source (google/outlook)
-
-### No Migrations Required
-Both features use existing database columns. No schema changes needed.
-
----
-
-## Configuration
-
-### Timeout Threshold
-- **Value:** 15 minutes
-- **Location:** Hardcoded in database functions
-- **Future:** Can be made configurable per profile
-
-### Cleanup Trigger
-- **Presales Reports:** Every presales-report API request
-- **Slides:** Every slides API request
-- **Calendar Sync:** Every calendar sync API request
-
-### Sync Scope
-- **Date Range:** Next 30 days from current date
-- **Sources:** Google Calendar and Outlook
-
----
-
-## Future Enhancements
-
-1. **Configurable Timeout**
-   - Make 15-minute timeout configurable per profile
-   - Allow different timeouts for different report types
-
-2. **Notifications**
-   - Email notifications for timeouts
-   - In-app notifications for sync deletions
-
-3. **Automatic Retry**
-   - Implement automatic retry logic
-   - Exponential backoff for failed retries
-
-4. **Sync History**
-   - Track sync history and deleted events
-   - Provide audit trail for calendar changes
-
-5. **Advanced Sync**
-   - Allow syncing specific date ranges
-   - Selective event sync based on keywords
-
----
-
-## Support & Troubleshooting
-
-### Common Issues
-
-**Issue:** "Try again" button not appearing for stale reports
-- **Solution:** Ensure `created_at` timestamp is set correctly in database
-- **Check:** Verify presales_report_status is 'processing' and presales_report_url is NULL
-
-**Issue:** Calendar events not being deleted after sync
-- **Solution:** Verify event_id and source fields are populated correctly
-- **Check:** Ensure remote event IDs are being extracted correctly from API response
-
-**Issue:** Deployment fails
-- **Solution:** Check Vercel logs for errors
-- **Rollback:** Use `git revert 82da5d9` to revert changes
-
----
-
-## Contact & Support
-
-**Developer:** AutoPrep App Developer  
-**Client:** Scott Sumerford  
-**Email:** scottsumerford@gmail.com  
-**Repository:** https://github.com/scottsumerford/AutoPrep-Team  
-**Live Application:** https://autoprep-team.lindy.site
-
----
-
-## Sign-Off
-
-✅ **Implementation:** Complete  
-✅ **Testing:** Passed  
-✅ **Documentation:** Complete  
-✅ **Code Review:** Ready  
-✅ **Deployment:** Ready  
-
-**Status:** READY FOR PRODUCTION DEPLOYMENT
-
-All code has been committed to GitHub and is ready for immediate deployment to Vercel. No additional work is required.
-
----
-
-*Generated: October 22, 2025*  
-*Last Updated: October 22, 2025*
+**Deployment Date:** November 6, 2025
+**Version:** 1.4.0
+**Status:** ✅ Ready for Testing
+**Commit:** 7ad9e68
+**Branch:** main
