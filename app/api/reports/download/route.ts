@@ -21,26 +21,41 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    console.log('📥 Download request for event ID:', eventId);
+
     // Get the event from database
     const event = await getEventById(parseInt(eventId));
 
     if (!event) {
+      console.log('❌ Event not found:', eventId);
       return NextResponse.json(
         { error: 'Event not found' },
         { status: 404 }
       );
     }
 
+    console.log('✅ Event found:', {
+      id: event.id,
+      title: event.title,
+      hasUrl: !!event.presales_report_url,
+      hasContent: !!event.presales_report_content,
+      contentLength: event.presales_report_content?.length || 0,
+      urlPreview: event.presales_report_url?.substring(0, 50)
+    });
+
     // If no presales_report_url but we have content, generate PDF on-the-fly
     if (!event.presales_report_url) {
       if (event.presales_report_content) {
         console.log('📄 No PDF URL found, generating PDF from content on-the-fly for event:', eventId);
+        console.log('📝 Content length:', event.presales_report_content.length);
         try {
-          const { generatePdfFromContent, bufferToDataUrl } = await import('@/lib/pdf-generator');
+          const { generatePdfFromContent } = await import('@/lib/pdf-generator');
           const pdfBuffer = await generatePdfFromContent(
             event.presales_report_content,
             `Pre-Sales Report - ${event.title}`
           );
+          
+          console.log('✅ PDF generated successfully, size:', pdfBuffer.length);
           
           // Generate filename
           const eventDate = new Date(event.start_time).toISOString().split('T')[0];
@@ -59,14 +74,22 @@ export async function GET(request: NextRequest) {
             },
           });
         } catch (error) {
-          console.error('Error generating PDF from content:', error);
+          console.error('❌ Error generating PDF from content:', error);
+          console.error('Error details:', {
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          });
           return NextResponse.json(
-            { error: 'Failed to generate PDF from content' },
+            { 
+              error: 'Failed to generate PDF from content',
+              details: error instanceof Error ? error.message : String(error)
+            },
             { status: 500 }
           );
         }
       }
       
+      console.log('❌ No URL and no content available for event:', eventId);
       return NextResponse.json(
         { error: 'No report available for this event' },
         { status: 404 }
@@ -75,8 +98,11 @@ export async function GET(request: NextRequest) {
 
     // Check if it's a data URL (base64 encoded PDF)
     if (event.presales_report_url.startsWith('data:')) {
+      console.log('📦 Processing data URL (base64 PDF)');
       try {
         const buffer = dataUrlToBuffer(event.presales_report_url);
+        
+        console.log('✅ Data URL converted to buffer, size:', buffer.length);
         
         // Generate a filename based on event title and date
         const eventDate = new Date(event.start_time).toISOString().split('T')[0];
@@ -95,7 +121,7 @@ export async function GET(request: NextRequest) {
           },
         });
       } catch (error) {
-        console.error('Error converting data URL to buffer:', error);
+        console.error('❌ Error converting data URL to buffer:', error);
         return NextResponse.json(
           { error: 'Failed to process PDF data' },
           { status: 500 }
@@ -104,10 +130,11 @@ export async function GET(request: NextRequest) {
     }
 
     // If it's an external URL, redirect to it
+    console.log('🔗 Redirecting to external URL:', event.presales_report_url);
     return NextResponse.redirect(event.presales_report_url);
 
   } catch (error) {
-    console.error('Error downloading report:', error);
+    console.error('❌ Error downloading report:', error);
     return NextResponse.json(
       { 
         error: 'Failed to download report',

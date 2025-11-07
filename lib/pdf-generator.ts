@@ -1,79 +1,104 @@
-import PDFDocument from 'pdfkit';
-import { Readable } from 'stream';
+import { jsPDF } from 'jspdf';
 
 /**
- * Generate a PDF from report content
+ * Generate a PDF from report content using jsPDF (works in serverless)
  * Returns a Buffer containing the PDF data
  */
 export async function generatePdfFromContent(
   reportContent: string,
   title: string = 'Pre-Sales Report'
 ): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    try {
-      const doc = new PDFDocument({
-        size: 'A4',
-        margin: 50,
-      });
+  try {
+    // Create a new PDF document
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
 
-      const chunks: Buffer[] = [];
+    // Set up margins and page dimensions
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const maxWidth = pageWidth - (margin * 2);
+    let yPosition = margin;
 
-      // Collect PDF data
-      doc.on('data', (chunk: Buffer) => {
-        chunks.push(chunk);
-      });
+    // Add title
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 10;
 
-      doc.on('end', () => {
-        const pdfBuffer = Buffer.concat(chunks);
-        resolve(pdfBuffer);
-      });
+    // Add timestamp
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 5;
 
-      doc.on('error', (err: Error) => {
-        reject(err);
-      });
+    // Add horizontal line
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 10;
 
-      // Add title
-      doc.fontSize(24).font('Helvetica-Bold').text(title, { align: 'center' });
-      doc.moveDown();
+    // Reset text color
+    doc.setTextColor(0, 0, 0);
 
-      // Add timestamp
-      doc.fontSize(10).font('Helvetica').fillColor('#666666');
-      doc.text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' });
-      doc.moveDown();
+    // Process content
+    const paragraphs = reportContent.split('\n\n');
+    
+    for (const paragraph of paragraphs) {
+      if (!paragraph.trim()) continue;
 
-      // Add horizontal line
-      doc.strokeColor('#cccccc').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
-      doc.moveDown();
+      // Check if this looks like a heading (all caps or short line)
+      const isHeading = paragraph.trim().length < 100 && 
+                       paragraph.trim() === paragraph.trim().toUpperCase();
 
-      // Add content
-      doc.fontSize(11).font('Helvetica').fillColor('#000000');
-      
-      // Split content into paragraphs and add to PDF
-      const paragraphs = reportContent.split('\n\n');
-      paragraphs.forEach((paragraph, index) => {
-        if (paragraph.trim()) {
-          // Check if this looks like a heading (all caps or short line)
-          if (paragraph.trim().length < 100 && paragraph.trim() === paragraph.trim().toUpperCase()) {
-            doc.fontSize(13).font('Helvetica-Bold').text(paragraph.trim());
-          } else {
-            doc.fontSize(11).font('Helvetica').text(paragraph.trim(), {
-              align: 'left',
-              width: 445,
-            });
-          }
-          
-          if (index < paragraphs.length - 1) {
-            doc.moveDown(0.5);
-          }
+      if (isHeading) {
+        // Add some space before heading
+        yPosition += 5;
+        
+        // Check if we need a new page
+        if (yPosition > pageHeight - margin - 20) {
+          doc.addPage();
+          yPosition = margin;
         }
-      });
 
-      // Finalize PDF
-      doc.end();
-    } catch (error) {
-      reject(error);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+      } else {
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+      }
+
+      // Split text into lines that fit the page width
+      const lines = doc.splitTextToSize(paragraph.trim(), maxWidth);
+      
+      // Check if we need a new page
+      const lineHeight = 7;
+      const blockHeight = lines.length * lineHeight;
+      
+      if (yPosition + blockHeight > pageHeight - margin) {
+        doc.addPage();
+        yPosition = margin;
+      }
+
+      // Add the text
+      doc.text(lines, margin, yPosition);
+      yPosition += blockHeight + 5;
     }
-  });
+
+    // Get PDF as array buffer
+    const pdfArrayBuffer = doc.output('arraybuffer');
+    
+    // Convert ArrayBuffer to Buffer
+    const pdfBuffer = Buffer.from(pdfArrayBuffer);
+    
+    return pdfBuffer;
+  } catch (error) {
+    console.error('Error generating PDF with jsPDF:', error);
+    throw error;
+  }
 }
 
 /**
