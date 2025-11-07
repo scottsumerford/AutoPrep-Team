@@ -1,0 +1,16 @@
+Vercel CLI 48.8.2
+Loading scopes…
+Searching for existing projects…
+Linked to scott-s-projects-53d26130/autoprep-team (created .vercel)
+Deploying scott-s-projects-53d26130/autoprep-team
+Uploading [--------------------] (0.0B/125.2KB)
+Uploading [=====---------------] (32.1KB/125.2KB)
+Uploading [==========----------] (65.7KB/125.2KB)
+Uploading [===============-----] (98.4KB/125.2KB)
+Uploading [====================] (125.2KB/125.2KB)
+Inspect: https://vercel.com/scott-s-projects-53d26130/autoprep-team/J6EuyJkKvWhvij3mYw6yAx71Enzn [3s]
+Preview: https://autoprep-team-h85diqkc4-scott-s-projects-53d26130.vercel.app [3s]
+https://autoprep-team-h85diqkc4-scott-s-projects-53d26130.vercel.appQueued
+Building
+Completing
+To deploy to production (autoprep-team.vercel.app), run `vercel --prod`

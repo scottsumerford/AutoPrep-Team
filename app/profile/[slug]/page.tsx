@@ -849,7 +849,7 @@ export default function ProfilePage() {
                                   Generating Report... {reportTimeRemaining[event.id] && `(${reportTimeRemaining[event.id]})`}
                                 </Button>
                               )}
-{event.presales_report_status === 'completed' && event.presales_report_url && (
+{event.presales_report_status === 'completed' && (
                                 <Button 
                                   size="sm"
                                   onClick={() => {
