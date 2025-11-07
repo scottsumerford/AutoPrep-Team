@@ -7,7 +7,7 @@ import crypto from 'crypto';
  * Webhook endpoint to receive updates from Lindy agents
  * This endpoint will be called by the Lindy agents when:
  * - Pre-sales report is ready (with optional report_content for PDF generation)
- * - Slides are ready for download
+ * - Slides are ready for download (with presentation_url from Supabase)
  * 
  * Uses HMAC-SHA256 signature verification for security
  */
@@ -23,6 +23,8 @@ export async function POST(request: NextRequest) {
       status: body.status,
       hasPdfUrl: !!body.pdf_url,
       hasReportContent: !!body.report_content,
+      hasPresentationUrl: !!body.presentation_url,
+      hasSlidesUrl: !!body.slides_url,
       reportContentLength: body.report_content ? body.report_content.length : 0
     });
 
@@ -62,6 +64,9 @@ export async function POST(request: NextRequest) {
       pdf_url,
       report_content,
       slides_url,
+      presentation_url,
+      filename,
+      created_at,
       error_message,
       event_title
     } = body;
@@ -129,14 +134,26 @@ export async function POST(request: NextRequest) {
     else if (agent_id === '68ed392b02927e7ace232732') {
       console.log('📊 Processing slides generation webhook');
       
-      if (status === 'completed' && slides_url) {
-        await updateEventSlidesStatus(parseInt(calendar_event_id as string), 'completed', slides_url);
-        console.log('✅ Slides marked as completed with URL:', slides_url);
+      if (status === 'completed') {
+        // The agent sends presentation_url from Supabase storage
+        const finalSlidesUrl = presentation_url || slides_url;
+        
+        if (finalSlidesUrl) {
+          await updateEventSlidesStatus(parseInt(calendar_event_id as string), 'completed', finalSlidesUrl);
+          console.log('✅ Slides marked as completed with URL:', {
+            url: finalSlidesUrl,
+            filename: filename,
+            created_at: created_at
+          });
+        } else {
+          console.warn('⚠️ Slides webhook completed but no presentation_url or slides_url provided');
+          await updateEventSlidesStatus(parseInt(calendar_event_id as string), 'completed');
+        }
       } else if (status === 'failed') {
         await updateEventSlidesStatus(parseInt(calendar_event_id as string), 'failed');
         console.log('❌ Slides marked as failed:', error_message);
       } else {
-        console.warn('⚠️ Slides webhook received but status or slides_url missing:', { status, slides_url });
+        console.warn('⚠️ Slides webhook received with unexpected status:', status);
       }
     }
     

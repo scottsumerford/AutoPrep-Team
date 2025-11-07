@@ -5,7 +5,7 @@ import { updateEventSlidesStatus, getEventById, markStaleSlidesRuns, getProfileB
  * POST /api/lindy/slides
  * 
  * Triggers the Lindy Slides Generation agent to generate slides for a calendar event.
- * Includes slide template file URL from Supabase Storage in the webhook payload.
+ * Sends report_url and template_url to the agent, which will post back to callback_url.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -68,37 +68,43 @@ export async function POST(request: NextRequest) {
     console.log('🔗 [SLIDES_WEBHOOK] Triggering Slides Generation Lindy agent via webhook');
     console.log('📍 Webhook URL:', webhookUrl);
 
-    // Prepare the payload for the agent
-    const agentPayload: Record<string, unknown> = {
-      calendar_event_id: event_id,
-      event_title: event_title,
-      event_description: event_description || '',
-      attendee_email: attendee_email,
-      user_profile_id: profile.id,
-      webhook_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
+    // Prepare the callback URL
+    const callbackUrl = process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`;
+
+    // Prepare the payload for the agent in the expected format
+    const agentPayload: {
+      report_url?: string;
+      template_url?: string;
+      callback_url: string;
+      calendar_event_id?: number;
+      event_title?: string;
+      attendee_email?: string;
+    } = {
+      callback_url: callbackUrl
     };
 
-    // Add slide template file URL to payload
+    // Add report URL if available (pre-sales report)
+    if (event.presales_report_url) {
+      agentPayload.report_url = event.presales_report_url;
+      console.log('📄 Including pre-sales report URL:', event.presales_report_url);
+    } else {
+      console.warn('⚠️ No pre-sales report URL found for event. Agent may not have report to reference.');
+    }
+
+    // Add template URL if available (slides template from profile)
     if (profile.slides_file) {
-      agentPayload.slides_template_url = profile.slides_file;
-      console.log('📎 Including slide template file URL:', profile.slides_file);
+      agentPayload.template_url = profile.slides_file;
+      console.log('📎 Including slides template URL:', profile.slides_file);
+    } else {
+      console.warn('⚠️ No slides template URL found in profile. Agent will use default template.');
     }
 
-    // Also include company info for context
-    if (profile.company_info_text) {
-      agentPayload.company_info_text = profile.company_info_text;
-      console.log('📝 Including company info text (length:', profile.company_info_text.length, ')');
-    }
-    
-    if (profile.company_info_file) {
-      agentPayload.company_info_file_url = profile.company_info_file;
-      console.log('📎 Including company info file URL:', profile.company_info_file);
-    }
+    // Add metadata for tracking
+    agentPayload.calendar_event_id = event_id;
+    agentPayload.event_title = event_title;
+    agentPayload.attendee_email = attendee_email;
 
-    console.log('📤 [SLIDES_WEBHOOK] Sending to agent:', JSON.stringify({
-      ...agentPayload,
-      company_info_text: agentPayload.company_info_text ? `[TEXT: ${String(agentPayload.company_info_text).substring(0, 50)}...]` : undefined
-    }, null, 2));
+    console.log('📤 [SLIDES_WEBHOOK] Sending to agent:', JSON.stringify(agentPayload, null, 2));
 
     // Call the webhook to invoke the agent
     const webhookResponse = await fetch(webhookUrl, {

@@ -8,8 +8,11 @@ https://nextjs.org/telemetry
 
    Creating an optimized production build ...
  ✓ Finished writing to disk in 31ms
- ✓ Compiled successfully in 7.8s
+ ✓ Compiled successfully in 8.8s
    Linting and checking validity of types ...
+
+./app/api/admin/fix-storage/route.ts
+62:17  Warning: 'data' is assigned a value but never used.  @typescript-eslint/no-unused-vars
 
 ./app/api/db/apply-schema/route.ts
 9:28  Warning: 'request' is defined but never used.  @typescript-eslint/no-unused-vars
@@ -20,45 +23,45 @@ https://nextjs.org/telemetry
 ./app/api/db/migrate/route.ts
 7:28  Warning: 'request' is defined but never used.  @typescript-eslint/no-unused-vars
 
-./app/profile/[slug]/page.tsx
-217:10  Warning: 'slidesContent' is assigned a value but never used.  @typescript-eslint/no-unused-vars
-217:25  Warning: 'setSlidesContent' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+./app/api/lindy/slides/route.ts
+16:36  Warning: 'event_description' is assigned a value but never used.  @typescript-eslint/no-unused-vars
 
 ./components/GeneratedReportsSection.tsx
 4:10  Warning: 'Button' is defined but never used.  @typescript-eslint/no-unused-vars
 
-./lib/pdf-generator.ts
-2:10  Warning: 'Readable' is defined but never used.  @typescript-eslint/no-unused-vars
-
 info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
    Collecting page data ...
 ❌ No POSTGRES_URL found in environment variables
+❌ No POSTGRES_URL found in environment variables
 Available POSTGRES env vars: []
+Available POSTGRES env vars: []
+⚠️ No POSTGRES_URL found - using in-memory storage
 ⚠️ No POSTGRES_URL found - using in-memory storage
 ❌ No POSTGRES_URL found in environment variables
 Available POSTGRES env vars: []
-❌ No POSTGRES_URL found in environment variables
-Available POSTGRES env vars: []
-⚠️ No POSTGRES_URL found - using in-memory storage
 ⚠️ No POSTGRES_URL found - using in-memory storage
 ⚠️ POSTGRES_URL not found - Supabase storage will not be available
 ⚠️ Supabase client not configured - file uploads will be disabled
-   Generating static pages (0/23) ...
+   Generating static pages (0/26) ...
 ❌ No POSTGRES_URL found in environment variables
 Available POSTGRES env vars: []
 ⚠️ No POSTGRES_URL found - using in-memory storage
-   Generating static pages (5/23) 
-   Generating static pages (11/23) 
+   Generating static pages (6/26) 
+❌ No POSTGRES_URL found in environment variables
+Available POSTGRES env vars: []
+⚠️ No POSTGRES_URL found - using in-memory storage
+   Generating static pages (12/26) 
+   Generating static pages (19/26) 
 ⚠️ POSTGRES_URL not found - Supabase storage will not be available
 ⚠️ Supabase client not configured - file uploads will be disabled
-   Generating static pages (17/23) 
- ✓ Generating static pages (23/23)
+ ✓ Generating static pages (26/26)
    Finalizing page optimization ...
    Collecting build traces ...
 
 Route (app)                               Size  First Load JS
 ┌ ○ /                                  26.6 kB         141 kB
 ├ ○ /_not-found                            0 B         114 kB
+├ ƒ /api/admin/fix-storage                 0 B            0 B
 ├ ƒ /api/auth/google                       0 B            0 B
 ├ ƒ /api/auth/google/disconnect            0 B            0 B
 ├ ƒ /api/auth/outlook                      0 B            0 B
@@ -68,6 +71,7 @@ Route (app)                               Size  First Load JS
 ├ ƒ /api/db/fix-airtable-ids               0 B            0 B
 ├ ƒ /api/db/init                           0 B            0 B
 ├ ƒ /api/db/migrate                        0 B            0 B
+├ ƒ /api/debug/supabase                    0 B            0 B
 ├ ƒ /api/files/upload                      0 B            0 B
 ├ ƒ /api/files/upload-text                 0 B            0 B
 ├ ƒ /api/health                            0 B            0 B
@@ -79,15 +83,16 @@ Route (app)                               Size  First Load JS
 ├ ƒ /api/profiles                          0 B            0 B
 ├ ƒ /api/profiles/[id]                     0 B            0 B
 ├ ƒ /api/profiles/slug/[slug]              0 B            0 B
+├ ƒ /api/reports/download                  0 B            0 B
 ├ ƒ /api/tokens/[id]                       0 B            0 B
 ├ ○ /privacypolicy                         0 B         114 kB
-├ ƒ /profile/[slug]                    37.9 kB         152 kB
+├ ƒ /profile/[slug]                    37.6 kB         152 kB
 └ ○ /termsofservice                        0 B         114 kB
 + First Load JS shared by all           134 kB
   ├ chunks/5564f493499345f1.js         24.1 kB
   ├ chunks/8082ab48faca5ea1.js         17.2 kB
   ├ chunks/d04efc723d1783d5.js         59.2 kB
-  ├ chunks/4743658983ab38c4.css        19.2 kB
+  ├ chunks/eaa64d43d21a0376.css        19.3 kB
   └ other shared chunks (total)        14.3 kB
 
 
