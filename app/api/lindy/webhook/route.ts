@@ -6,7 +6,7 @@ import crypto from 'crypto';
 /**
  * Webhook endpoint to receive updates from Lindy agents
  * This endpoint will be called by the Lindy agents when:
- * - Pre-sales report is ready (with optional report_content for PDF generation)
+ * - Pre-sales report is ready (with pdf_url from Supabase storage or report_content for PDF generation)
  * - Slides are ready for download (with presentation_url from Supabase)
  * 
  * Uses HMAC-SHA256 signature verification for security
@@ -87,9 +87,14 @@ export async function POST(request: NextRequest) {
         let finalPdfUrl = pdf_url;
         const finalReportContent = report_content;
 
-        // If we have report content, ALWAYS generate a PDF from it (prioritize content over URL)
-        if (report_content && typeof report_content === 'string') {
-          console.log('📄 Generating PDF from report content received in webhook...');
+        // PRIORITIZE pdf_url (Supabase storage URL) over generating from content
+        if (pdf_url) {
+          console.log('📄 Using PDF URL from Supabase storage:', pdf_url);
+          finalPdfUrl = pdf_url;
+        } 
+        // Only generate PDF from content if no pdf_url is provided
+        else if (report_content && typeof report_content === 'string') {
+          console.log('📄 No PDF URL provided, generating PDF from report content...');
           console.log('📝 Report content length:', report_content.length, 'characters');
           
           try {
@@ -116,7 +121,7 @@ export async function POST(request: NextRequest) {
           console.log('✅ Pre-sales report marked as completed:', {
             hasPdfUrl: !!finalPdfUrl,
             hasContent: !!finalReportContent,
-            source: pdf_url ? 'webhook_pdf_url' : 'generated_from_content'
+            source: pdf_url ? 'supabase_storage_url' : 'generated_from_content'
           });
         } else {
           console.warn('⚠️ Pre-sales webhook completed but no PDF URL or report content provided');
