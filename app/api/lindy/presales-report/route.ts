@@ -5,7 +5,7 @@ import { updateEventPresalesStatus, getEventById, markStalePresalesRuns, getProf
  * POST /api/lindy/presales-report
  * 
  * Triggers the Lindy Pre-Sales Report agent to generate a report for a calendar event.
- * Includes company information (file URL or text) from Supabase in the webhook payload.
+ * Includes organizer information, all attendees, and company information from the database.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -67,15 +67,55 @@ export async function POST(request: NextRequest) {
 
     console.log('🔗 [PRESALES_REPORT_WEBHOOK] Triggering Pre-sales Report Lindy agent via webhook');
 
+    // Extract organizer information
+    const organizerEmail = profile.email;
+    const organizerName = profile.name;
+    const organizerDomain = organizerEmail.split('@')[1]?.toLowerCase() || '';
+
+    // Get all attendees from the event
+    const allAttendees = event.attendees || [];
+    
+    // Filter external attendees (different domain than organizer)
+    const externalAttendees = allAttendees.filter(email => {
+      const attendeeDomain = email.split('@')[1]?.toLowerCase() || '';
+      const isOrganizer = email.toLowerCase() === organizerEmail.toLowerCase();
+      const isSameDomain = attendeeDomain === organizerDomain;
+      return !isOrganizer && !isSameDomain;
+    });
+
+    console.log('👥 [PRESALES_REPORT_WEBHOOK] Attendee analysis:', {
+      organizerEmail,
+      organizerDomain,
+      totalAttendees: allAttendees.length,
+      externalAttendees: externalAttendees.length,
+      allAttendees,
+    });
+
     // Prepare the payload for the webhook
     const webhookPayload: Record<string, unknown> = {
       calendar_event_id: event_id,
       event_title: event_title,
       event_description: event_description || '',
-      attendee_email: attendee_email,
+      
+      // Organizer information
+      organizer_email: organizerEmail,
+      organizer_name: organizerName,
+      
+      // Attendee information
+      attendee_email: attendee_email, // Keep for backward compatibility (primary external attendee)
+      attendee_emails: allAttendees, // All attendees including organizer
+      external_attendees: externalAttendees, // Only external attendees (prospects/clients)
+      
+      // Profile and callback
       user_profile_id: profile.id,
       webhook_callback_url: process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`
     };
+
+    // Add Airtable record ID if available
+    if (profile.airtable_record_id) {
+      webhookPayload.airtable_record_id = profile.airtable_record_id;
+      console.log('📋 Including Airtable record ID:', profile.airtable_record_id);
+    }
 
     // Add company information to payload
     // Priority: text > file URL

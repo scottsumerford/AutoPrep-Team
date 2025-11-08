@@ -5,7 +5,7 @@ import { updateEventSlidesStatus, getEventById, markStaleSlidesRuns, getProfileB
  * POST /api/lindy/slides
  * 
  * Triggers the Lindy Slides Generation agent to generate slides for a calendar event.
- * Sends report_url and template_url to the agent, which will post back to callback_url.
+ * Includes organizer information, all attendees, and company information from the database.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -83,20 +83,59 @@ export async function POST(request: NextRequest) {
     console.log('🔗 [SLIDES_WEBHOOK] Triggering Slides Generation Lindy agent via webhook');
     console.log('📍 Webhook URL:', webhookUrl);
 
+    // Extract organizer information
+    const organizerEmail = profile.email;
+    const organizerName = profile.name;
+    const organizerDomain = organizerEmail.split('@')[1]?.toLowerCase() || '';
+
+    // Get all attendees from the event
+    const allAttendees = event.attendees || [];
+    
+    // Filter external attendees (different domain than organizer)
+    const externalAttendees = allAttendees.filter(email => {
+      const attendeeDomain = email.split('@')[1]?.toLowerCase() || '';
+      const isOrganizer = email.toLowerCase() === organizerEmail.toLowerCase();
+      const isSameDomain = attendeeDomain === organizerDomain;
+      return !isOrganizer && !isSameDomain;
+    });
+
+    console.log('👥 [SLIDES_WEBHOOK] Attendee analysis:', {
+      organizerEmail,
+      organizerDomain,
+      totalAttendees: allAttendees.length,
+      externalAttendees: externalAttendees.length,
+      allAttendees,
+    });
+
     // Prepare the callback URL
     const callbackUrl = process.env.LINDY_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'https://team.autoprep.ai'}/api/lindy/webhook`;
 
-    // Prepare the payload for the agent in the expected format
-    const agentPayload: {
-      report_url?: string;
-      template_url?: string;
-      callback_url: string;
-      calendar_event_id?: number;
-      event_title?: string;
-      attendee_email?: string;
-    } = {
-      callback_url: callbackUrl
+    // Prepare the payload for the agent
+    const agentPayload: Record<string, unknown> = {
+      calendar_event_id: event_id,
+      event_title: event_title,
+      event_description: event_description || '',
+      
+      // Organizer information
+      organizer_email: organizerEmail,
+      organizer_name: organizerName,
+      
+      // Attendee information
+      attendee_email: attendee_email, // Keep for backward compatibility (primary external attendee)
+      attendee_emails: allAttendees, // All attendees including organizer
+      external_attendees: externalAttendees, // Only external attendees (prospects/clients)
+      
+      // Profile and callback
+      user_profile_id: profile.id,
+      callback_url: callbackUrl,
+      webhook_url: callbackUrl // Some agents may expect this field name
     };
+
+    // Add Airtable record ID if available
+    if (profile.airtable_record_id) {
+      agentPayload.airtable_record_id = profile.airtable_record_id;
+      console.log('📋 Including Airtable record ID:', profile.airtable_record_id);
+    }
 
     // Add report URL if available (pre-sales report)
     if (event.presales_report_url) {
@@ -120,11 +159,6 @@ export async function POST(request: NextRequest) {
         profile_name: profile.name
       });
     }
-
-    // Add metadata for tracking
-    agentPayload.calendar_event_id = event_id;
-    agentPayload.event_title = event_title;
-    agentPayload.attendee_email = attendee_email;
 
     console.log('📤 [SLIDES_WEBHOOK] Sending to agent:', JSON.stringify(agentPayload, null, 2));
 
