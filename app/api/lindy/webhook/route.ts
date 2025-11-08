@@ -7,7 +7,7 @@ import crypto from 'crypto';
 /**
  * Webhook endpoint to receive updates from Lindy agents
  * This endpoint will be called by the Lindy agents when:
- * - Pre-sales report is ready (with pdf_url from Supabase storage or report_content for PDF generation)
+ * - Pre-sales report is ready (with pdf_url/presales_report_url from Supabase storage or report_content for PDF generation)
  * - Slides are ready for download (with presentation_url from Supabase)
  * 
  * Uses HMAC-SHA256 signature verification for security
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
       calendar_event_id: body.calendar_event_id,
       status: body.status,
       hasPdfUrl: !!body.pdf_url,
+      hasPresalesReportUrl: !!body.presales_report_url,
       hasReportContent: !!body.report_content,
       hasPresentationUrl: !!body.presentation_url,
       hasSlidesUrl: !!body.slides_url,
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
       calendar_event_id, 
       status, 
       pdf_url,
+      presales_report_url,
       report_content,
       slides_url,
       presentation_url,
@@ -85,15 +87,16 @@ export async function POST(request: NextRequest) {
       console.log('📄 Processing pre-sales report webhook');
       
       if (status === 'completed') {
-        let finalPdfUrl = pdf_url;
+        // Accept both pdf_url and presales_report_url field names
+        let finalPdfUrl = presales_report_url || pdf_url;
         const finalReportContent = report_content;
 
-        // PRIORITIZE pdf_url (Supabase storage URL) if provided by agent
-        if (pdf_url) {
-          console.log('📄 Using PDF URL from agent (Supabase storage):', pdf_url);
-          finalPdfUrl = pdf_url;
+        // PRIORITIZE presales_report_url or pdf_url (Supabase storage URL) if provided by agent
+        if (finalPdfUrl) {
+          console.log('📄 Using PDF URL from agent (Supabase storage):', finalPdfUrl);
+          console.log('📄 URL field name:', presales_report_url ? 'presales_report_url' : 'pdf_url');
         } 
-        // If no pdf_url but we have report_content, generate PDF and upload to Supabase
+        // If no URL but we have report_content, generate PDF and upload to Supabase
         else if (report_content && typeof report_content === 'string') {
           console.log('📄 No PDF URL provided, generating PDF from report content...');
           console.log('📝 Report content length:', report_content.length, 'characters');
@@ -151,9 +154,10 @@ export async function POST(request: NextRequest) {
           );
           console.log('✅ Pre-sales report marked as completed:', {
             hasPdfUrl: !!finalPdfUrl,
+            pdfUrl: finalPdfUrl,
             hasContent: !!finalReportContent,
             urlType: finalPdfUrl?.startsWith('https://') ? 'supabase_storage_url' : 'data_url',
-            source: pdf_url ? 'agent_provided' : 'generated_and_uploaded'
+            source: (presales_report_url || pdf_url) ? 'agent_provided' : 'generated_and_uploaded'
           });
         } else {
           console.warn('⚠️ Pre-sales webhook completed but no PDF URL or report content provided');
