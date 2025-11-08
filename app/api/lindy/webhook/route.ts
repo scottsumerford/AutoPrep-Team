@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateEventPresalesStatus, updateEventSlidesStatus } from '@/lib/db';
 import { generatePdfFromContent, bufferToDataUrl } from '@/lib/pdf-generator';
+import { uploadFileToSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import crypto from 'crypto';
 
 /**
@@ -87,23 +88,53 @@ export async function POST(request: NextRequest) {
         let finalPdfUrl = pdf_url;
         const finalReportContent = report_content;
 
-        // PRIORITIZE pdf_url (Supabase storage URL) over generating from content
+        // PRIORITIZE pdf_url (Supabase storage URL) if provided by agent
         if (pdf_url) {
-          console.log('📄 Using PDF URL from Supabase storage:', pdf_url);
+          console.log('📄 Using PDF URL from agent (Supabase storage):', pdf_url);
           finalPdfUrl = pdf_url;
         } 
-        // Only generate PDF from content if no pdf_url is provided
+        // If no pdf_url but we have report_content, generate PDF and upload to Supabase
         else if (report_content && typeof report_content === 'string') {
           console.log('📄 No PDF URL provided, generating PDF from report content...');
           console.log('📝 Report content length:', report_content.length, 'characters');
           
           try {
+            // Generate PDF from content
             const pdfBuffer = await generatePdfFromContent(
               report_content,
               `Pre-Sales Report - ${event_title || 'Calendar Event'}`
             );
-            finalPdfUrl = bufferToDataUrl(pdfBuffer, 'application/pdf');
-            console.log('✅ PDF generated successfully from webhook content, size:', pdfBuffer.length, 'bytes');
+            console.log('✅ PDF generated successfully, size:', pdfBuffer.length, 'bytes');
+
+            // Upload to Supabase storage if configured
+            if (isSupabaseConfigured()) {
+              console.log('📤 Uploading PDF to Supabase storage...');
+              const timestamp = Date.now();
+              const sanitizedTitle = (event_title || 'report')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+              const filename = `presales-report-${calendar_event_id}-${sanitizedTitle}-${timestamp}.pdf`;
+              
+              try {
+                finalPdfUrl = await uploadFileToSupabase(
+                  'Reports',
+                  filename,
+                  pdfBuffer,
+                  'application/pdf'
+                );
+                console.log('✅ PDF uploaded to Supabase storage:', finalPdfUrl);
+              } catch (uploadError) {
+                console.error('❌ Error uploading PDF to Supabase:', uploadError);
+                // Fallback to data URL if upload fails
+                finalPdfUrl = bufferToDataUrl(pdfBuffer, 'application/pdf');
+                console.log('⚠️ Falling back to data URL due to upload error');
+              }
+            } else {
+              // No Supabase configured, use data URL
+              finalPdfUrl = bufferToDataUrl(pdfBuffer, 'application/pdf');
+              console.log('⚠️ Supabase not configured, using data URL');
+            }
           } catch (pdfError) {
             console.error('❌ Error generating PDF from webhook content:', pdfError);
             // Continue with what we have
@@ -121,7 +152,8 @@ export async function POST(request: NextRequest) {
           console.log('✅ Pre-sales report marked as completed:', {
             hasPdfUrl: !!finalPdfUrl,
             hasContent: !!finalReportContent,
-            source: pdf_url ? 'supabase_storage_url' : 'generated_from_content'
+            urlType: finalPdfUrl?.startsWith('https://') ? 'supabase_storage_url' : 'data_url',
+            source: pdf_url ? 'agent_provided' : 'generated_and_uploaded'
           });
         } else {
           console.warn('⚠️ Pre-sales webhook completed but no PDF URL or report content provided');
