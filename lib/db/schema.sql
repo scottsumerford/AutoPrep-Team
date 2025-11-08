@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   source VARCHAR(50) NOT NULL, -- 'google' or 'outlook'
   presales_report_status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
   presales_report_url TEXT,
+  presales_report_content TEXT,
   presales_report_started_at TIMESTAMP,
   presales_report_generated_at TIMESTAMP,
   slides_status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
