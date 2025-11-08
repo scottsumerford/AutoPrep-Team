@@ -16,6 +16,9 @@ CREATE TABLE IF NOT EXISTS profiles (
   keyword_filter TEXT,
   slide_template_url TEXT,
   company_info_url TEXT,
+  company_info_file TEXT,
+  company_info_text TEXT,
+  slides_file TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

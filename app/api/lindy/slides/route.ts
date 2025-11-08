@@ -35,6 +35,13 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
+    console.log('📋 [SLIDES_WEBHOOK] Event details:', {
+      event_id: event.id,
+      profile_id: event.profile_id,
+      title: event.title,
+      has_presales_report: !!event.presales_report_url
+    });
+
     // Get profile to include slide template
     const profile = await getProfileById(event.profile_id);
     if (!profile) {
@@ -44,6 +51,14 @@ export async function POST(request: NextRequest) {
         error: 'Profile not found' 
       }, { status: 404 });
     }
+
+    console.log('👤 [SLIDES_WEBHOOK] Profile details:', {
+      profile_id: profile.id,
+      profile_name: profile.name,
+      profile_slug: profile.url_slug,
+      has_slides_file: !!profile.slides_file,
+      slides_file_url: profile.slides_file || 'NOT SET'
+    });
 
     // Get webhook URL and secret from environment
     const webhookUrl = process.env.LINDY_SLIDES_WEBHOOK_URL;
@@ -94,9 +109,16 @@ export async function POST(request: NextRequest) {
     // Add template URL if available (slides template from profile)
     if (profile.slides_file) {
       agentPayload.template_url = profile.slides_file;
-      console.log('📎 Including slides template URL:', profile.slides_file);
+      console.log('📎 Including slides template URL from profile:', {
+        profile_id: profile.id,
+        profile_name: profile.name,
+        template_url: profile.slides_file
+      });
     } else {
-      console.warn('⚠️ No slides template URL found in profile. Agent will use default template.');
+      console.warn('⚠️ No slides template URL found in profile. Agent will use default template.', {
+        profile_id: profile.id,
+        profile_name: profile.name
+      });
     }
 
     // Add metadata for tracking
