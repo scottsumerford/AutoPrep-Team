@@ -8,7 +8,7 @@ https://nextjs.org/telemetry
 
    Creating an optimized production build ...
  ✓ Finished writing to disk in 31ms
- ✓ Compiled successfully in 8.8s
+ ✓ Compiled successfully in 7.2s
    Linting and checking validity of types ...
 
 ./app/api/admin/fix-storage/route.ts
@@ -23,38 +23,37 @@ https://nextjs.org/telemetry
 ./app/api/db/migrate/route.ts
 7:28  Warning: 'request' is defined but never used.  @typescript-eslint/no-unused-vars
 
-./app/api/lindy/slides/route.ts
-16:36  Warning: 'event_description' is assigned a value but never used.  @typescript-eslint/no-unused-vars
-
 ./components/GeneratedReportsSection.tsx
 4:10  Warning: 'Button' is defined but never used.  @typescript-eslint/no-unused-vars
 
 info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
    Collecting page data ...
 ❌ No POSTGRES_URL found in environment variables
-❌ No POSTGRES_URL found in environment variables
-Available POSTGRES env vars: []
 Available POSTGRES env vars: []
 ⚠️ No POSTGRES_URL found - using in-memory storage
+❌ No POSTGRES_URL found in environment variables
+Available POSTGRES env vars: []
 ⚠️ No POSTGRES_URL found - using in-memory storage
 ❌ No POSTGRES_URL found in environment variables
 Available POSTGRES env vars: []
 ⚠️ No POSTGRES_URL found - using in-memory storage
 ⚠️ POSTGRES_URL not found - Supabase storage will not be available
 ⚠️ Supabase client not configured - file uploads will be disabled
-   Generating static pages (0/26) ...
-❌ No POSTGRES_URL found in environment variables
-Available POSTGRES env vars: []
-⚠️ No POSTGRES_URL found - using in-memory storage
-   Generating static pages (6/26) 
-❌ No POSTGRES_URL found in environment variables
-Available POSTGRES env vars: []
-⚠️ No POSTGRES_URL found - using in-memory storage
-   Generating static pages (12/26) 
-   Generating static pages (19/26) 
 ⚠️ POSTGRES_URL not found - Supabase storage will not be available
 ⚠️ Supabase client not configured - file uploads will be disabled
- ✓ Generating static pages (26/26)
+   Generating static pages (0/28) ...
+❌ No POSTGRES_URL found in environment variables
+Available POSTGRES env vars: []
+⚠️ No POSTGRES_URL found - using in-memory storage
+⚠️ POSTGRES_URL not found - Supabase storage will not be available
+⚠️ Supabase client not configured - file uploads will be disabled
+❌ No POSTGRES_URL found in environment variables
+Available POSTGRES env vars: []
+⚠️ No POSTGRES_URL found - using in-memory storage
+   Generating static pages (7/28) 
+   Generating static pages (14/28) 
+   Generating static pages (21/28) 
+ ✓ Generating static pages (28/28)
    Finalizing page optimization ...
    Collecting build traces ...
 
@@ -62,8 +61,10 @@ Route (app)                               Size  First Load JS
 ┌ ○ /                                  26.6 kB         141 kB
 ├ ○ /_not-found                            0 B         114 kB
 ├ ƒ /api/admin/fix-storage                 0 B            0 B
+├ ƒ /api/auth/callback/microsoft           0 B            0 B
 ├ ƒ /api/auth/google                       0 B            0 B
 ├ ƒ /api/auth/google/disconnect            0 B            0 B
+├ ƒ /api/auth/microsoft                    0 B            0 B
 ├ ƒ /api/auth/outlook                      0 B            0 B
 ├ ƒ /api/calendar/[id]                     0 B            0 B
 ├ ƒ /api/calendar/sync                     0 B            0 B

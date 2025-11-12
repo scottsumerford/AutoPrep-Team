@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
 
   // If no code, redirect to Microsoft OAuth
   if (!code) {
-    const clientId = process.env.OUTLOOK_CLIENT_ID;
+    const clientId = process.env.MICROSOFT_CLIENT_ID || process.env.OUTLOOK_CLIENT_ID;
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/api/auth/outlook`;
     
     const microsoftAuthUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
@@ -41,8 +41,8 @@ export async function GET(request: NextRequest) {
       },
       body: new URLSearchParams({
         code,
-        client_id: process.env.OUTLOOK_CLIENT_ID || '',
-        client_secret: process.env.OUTLOOK_CLIENT_SECRET || '',
+        client_id: process.env.MICROSOFT_CLIENT_ID || process.env.OUTLOOK_CLIENT_ID || '',
+        client_secret: process.env.MICROSOFT_CLIENT_SECRET || process.env.OUTLOOK_CLIENT_SECRET || '',
         redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/api/auth/outlook`,
         grant_type: 'authorization_code',
       }),

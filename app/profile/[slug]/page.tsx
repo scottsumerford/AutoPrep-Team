@@ -900,7 +900,7 @@ export default function ProfilePage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction asChild>
-              <a href={`/api/auth/outlook?profile_id=${profile.id}`}>
+              <a href={`/api/auth/microsoft?profile_id=${profile.id}`}>
                 Connect Outlook
               </a>
             </AlertDialogAction>
